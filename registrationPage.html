@@ -23,9 +23,63 @@
       padding: 0;
       box-sizing: border-box;
     }
+
+    /* Valentine's Theme Styles from 1.html */
+    body {
+      background: #4a0e0e;
+      background-image: radial-gradient(circle at center, #8b1e1e 0%, #310808 100%);
+      overflow-x: hidden;
+    }
+
+    /* Background blur effect */
+    .background-overlay {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      background: url('https://images.unsplash.com/photo-1518199266791-739d6ff26df5?q=80&w=2070&auto=format&fit=crop') center/cover;
+      filter: blur(20px) brightness(0.4);
+      z-index: 0;
+    }
+
+    #root {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Glass card effect */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    /* Brand colors */
+    .brand-gold {
+      color: #f3d19e;
+    }
+
+    /* Custom gradient for buttons */
+    .btn-valentine {
+      background: linear-gradient(90deg, #8b1e1e, #d64545);
+      box-shadow: 0 4px 15px rgba(139, 30, 30, 0.4);
+    }
+
+    .btn-valentine:hover {
+      box-shadow: 0 6px 20px rgba(139, 30, 30, 0.6);
+    }
+
+    /* Progress bar custom styling */
+    .progress-bar-valentine {
+      background: linear-gradient(90deg, #8b1e1e, #d64545);
+    }
   </style>
 </head>
 <body>
+  <div class="background-overlay"></div>
   <div id="root"></div>
 
   <script type="text/babel">
@@ -520,14 +574,14 @@ const firebaseConfig = {
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 mb-4">
                     <Heart className="w-8 h-8 text-white" fill="white" />
                   </div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold brand-gold">
                     Welcome to Campus Connect
                   </h2>
-                  <p className="text-gray-600">Verify your college email to get started</p>
+                  <p className="text-white text-opacity-90">Verify your college email to get started</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-white mb-2">
                     College Email
                   </label>
                   <div className="relative">
@@ -538,11 +592,11 @@ const firebaseConfig = {
                       value={formData.collegeEmail}
                       onChange={(e) => setFormData({ ...formData, collegeEmail: e.target.value.toLowerCase() })}
                       disabled={otpSent}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors disabled:bg-gray-50"
+                      className="w-full pl-10 pr-4 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all disabled:bg-opacity-50"
                     />
                   </div>
                   {errors.email && (
-                    <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
+                    <div className="mt-2 flex items-start gap-2 text-red-300 text-sm bg-red-900 bg-opacity-30 p-3 rounded-lg">
                       <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <span>{errors.email}</span>
                     </div>
@@ -553,7 +607,7 @@ const firebaseConfig = {
                   <button
                     onClick={sendOTP}
                     disabled={loading || !formData.collegeEmail}
-                    className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full py-3 btn-valentine text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>
@@ -567,7 +621,7 @@ const firebaseConfig = {
                 ) : (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-white mb-2">
                         Enter 6-digit OTP
                       </label>
                       <div className="flex gap-2 justify-center">
@@ -581,12 +635,12 @@ const firebaseConfig = {
                             onChange={(e) => handleOtpChange(index, e.target.value)}
                             onKeyDown={(e) => handleOtpKeyDown(index, e)}
                             onPaste={handleOtpPaste}
-                            className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                            className="w-12 h-12 text-center text-xl font-bold border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:outline-none transition-colors"
                           />
                         ))}
                       </div>
                       {errors.otp && (
-                        <div className="mt-2 flex items-center gap-2 text-red-600 text-sm justify-center">
+                        <div className="mt-2 flex items-center gap-2 text-red-300 text-sm justify-center bg-red-900 bg-opacity-30 p-3 rounded-lg">
                           <AlertTriangle className="w-4 h-4" />
                           <span>{errors.otp}</span>
                         </div>
@@ -594,7 +648,7 @@ const firebaseConfig = {
                     </div>
 
                     <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-gray-600">
+                      <div className="flex items-center gap-2 text-white">
                         <Clock className="w-4 h-4" />
                         <span>
                           {timer > 0 ? `${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, '0')}` : 'OTP Expired'}
@@ -603,7 +657,7 @@ const firebaseConfig = {
                       <button
                         onClick={resendOTP}
                         disabled={timer > 0 || loading}
-                        className="text-rose-600 font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="brand-gold font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {loading ? 'Sending...' : 'Resend OTP'}
                       </button>
@@ -612,15 +666,15 @@ const firebaseConfig = {
                     <button
                       onClick={verifyOTP}
                       disabled={otp.some(d => !d)}
-                      className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3 btn-valentine text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Verify OTP
                     </button>
                   </div>
                 )}
 
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <p className="text-sm text-blue-800">
+                <div className="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 backdrop-blur-sm">
+                  <p className="text-sm text-white">
                     <strong>Email Format:</strong> name.initial.branch.year@college.ac.in
                     <br />
                     <strong>Example:</strong> john.d.cs.23@xyz.ac.in
@@ -633,14 +687,14 @@ const firebaseConfig = {
             return (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold brand-gold">
                     What's Your Name?
                   </h2>
-                  <p className="text-gray-600">This is how you'll appear to others</p>
+                  <p className="text-white text-opacity-90">This is how you'll appear to others</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Full Name
                   </label>
                   <input
@@ -648,14 +702,14 @@ const firebaseConfig = {
                     placeholder="Enter your full name"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                    className="w-full px-4 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all"
                     autoFocus
                   />
                 </div>
 
-                <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-4 space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Your Profile Info:</p>
-                  <div className="text-sm text-gray-600 space-y-1">
+                <div className="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 space-y-2 backdrop-blur-sm">
+                  <p className="text-sm font-medium text-white">Your Profile Info:</p>
+                  <div className="text-sm text-white text-opacity-90 space-y-1">
                     <p>📧 {formData.collegeEmail}</p>
                     <p>🎓 {formData.collegeName}</p>
                     <p>📚 {formData.branch} ({formData.branchCode})</p>
@@ -669,10 +723,10 @@ const firebaseConfig = {
             return (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold brand-gold">
                     Select Your Gender
                   </h2>
-                  <p className="text-gray-600">Help us personalize your experience</p>
+                  <p className="text-white text-opacity-90">Help us personalize your experience</p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -682,11 +736,11 @@ const firebaseConfig = {
                       onClick={() => setFormData({ ...formData, gender })}
                       className={`p-6 rounded-2xl border-2 transition-all transform hover:scale-105 ${
                         formData.gender === gender
-                          ? 'border-rose-500 bg-gradient-to-br from-rose-50 to-pink-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-white border-opacity-50 bg-white bg-opacity-20 shadow-md backdrop-blur-sm'
+                          : 'border-white border-opacity-20 bg-white bg-opacity-5 hover:bg-opacity-10 backdrop-blur-sm'
                       }`}
                     >
-                      <span className="text-lg font-semibold">{gender}</span>
+                      <span className="text-lg font-semibold text-white">{gender}</span>
                     </button>
                   ))}
                 </div>
@@ -697,15 +751,15 @@ const firebaseConfig = {
             return (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold brand-gold">
                     Add Your Photos
                   </h2>
-                  <p className="text-gray-600">Add at least 2 photos (max 6)</p>
+                  <p className="text-white text-opacity-90">Add at least 2 photos (max 6)</p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   {formData.profilePictures.map((pic, index) => (
-                    <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group">
+                    <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group border-2 border-white border-opacity-20">
                       <img
                         src={pic}
                         alt={`Profile ${index + 1}`}
@@ -713,7 +767,7 @@ const firebaseConfig = {
                       />
                       <button
                         onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -723,10 +777,10 @@ const firebaseConfig = {
                   {formData.profilePictures.length < 6 && (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square border-2 border-dashed border-gray-300 rounded-2xl hover:border-rose-500 transition-colors flex flex-col items-center justify-center gap-2 group"
+                      className="aspect-square border-2 border-dashed border-white border-opacity-30 rounded-2xl bg-white bg-opacity-5 hover:bg-opacity-10 hover:border-opacity-50 transition-all flex flex-col items-center justify-center gap-2 group backdrop-blur-sm"
                     >
-                      <Camera className="w-8 h-8 text-gray-400 group-hover:text-rose-500 transition-colors" />
-                      <span className="text-sm text-gray-500 group-hover:text-rose-500 transition-colors">
+                      <Camera className="w-8 h-8 text-white text-opacity-60 group-hover:text-opacity-100 transition-all" />
+                      <span className="text-sm text-white text-opacity-60 group-hover:text-opacity-100 transition-all">
                         Add Photo
                       </span>
                     </button>
@@ -748,10 +802,10 @@ const firebaseConfig = {
             return (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold brand-gold">
                     Your Interests
                   </h2>
-                  <p className="text-gray-600">Select at least 5 (max 10)</p>
+                  <p className="text-white text-opacity-90">Select at least 5 (max 10)</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 justify-center">
@@ -761,8 +815,8 @@ const firebaseConfig = {
                       onClick={() => toggleInterest(interest)}
                       className={`px-4 py-2 rounded-full font-medium transition-all transform hover:scale-105 ${
                         formData.interests.includes(interest)
-                          ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? 'btn-valentine text-white shadow-md'
+                          : 'bg-white bg-opacity-15 text-white hover:bg-opacity-25 backdrop-blur-sm'
                       }`}
                     >
                       {interest}
@@ -775,7 +829,7 @@ const firebaseConfig = {
                       <button
                         key={interest}
                         onClick={() => toggleInterest(interest)}
-                        className="px-4 py-2 rounded-full font-medium bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md flex items-center gap-1"
+                        className="px-4 py-2 rounded-full font-medium btn-valentine text-white shadow-md flex items-center gap-1"
                       >
                         {interest}
                         <X className="w-4 h-4" />
@@ -790,18 +844,18 @@ const firebaseConfig = {
                     value={customInterest}
                     onChange={(e) => setCustomInterest(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addCustomInterest()}
-                    className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                    className="flex-1 px-4 py-2 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all"
                   />
                   <button
                     onClick={addCustomInterest}
-                    className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl hover:shadow-lg transition-all"
+                    className="px-4 py-2 btn-valentine text-white rounded-xl hover:shadow-lg transition-all"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
 
                 {formData.interests.length > 0 && formData.interests.length < 5 && (
-                  <p className="text-center text-sm text-amber-600">
+                  <p className="text-center text-sm text-yellow-300">
                     Select {5 - formData.interests.length} more {formData.interests.length === 4 ? 'interest' : 'interests'} to continue
                   </p>
                 )}
@@ -812,26 +866,26 @@ const firebaseConfig = {
             return (
               <div className="space-y-6">
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  <h2 className="text-3xl font-bold brand-gold">
                     Tell Us About Yourself
                   </h2>
-                  <p className="text-gray-600">Write a bio that stands out (min 50 characters)</p>
+                  <p className="text-white text-opacity-90">Write a bio that stands out (min 50 characters)</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Bio ({formData.bio.length}/500)
                   </label>
                   <textarea
                     placeholder="Share what makes you unique, your passions, what you're looking for..."
                     value={formData.bio}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value.slice(0, 500) })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors resize-none"
+                    className="w-full px-4 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all resize-none"
                     rows="6"
                     autoFocus
                   />
                   {formData.bio.length < 50 && (
-                    <p className="text-sm text-amber-600 mt-2">
+                    <p className="text-sm text-yellow-300 mt-2">
                       {50 - formData.bio.length} more characters needed
                     </p>
                   )}
@@ -845,16 +899,16 @@ const firebaseConfig = {
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 mb-4">
                   <Check className="w-10 h-10 text-white" strokeWidth={3} />
                 </div>
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                <h2 className="text-3xl font-bold brand-gold">
                   You're All Set! 🎉
                 </h2>
-                <p className="text-gray-600 text-lg">
+                <p className="text-white text-lg">
                   Welcome to the community, {formData.fullName}!
                 </p>
                 
-                <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl p-6 space-y-4 text-left">
-                  <h3 className="font-semibold text-gray-900">Profile Summary:</h3>
-                  <div className="space-y-2 text-sm">
+                <div className="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-2xl p-6 space-y-4 text-left backdrop-blur-sm">
+                  <h3 className="font-semibold text-white">Profile Summary:</h3>
+                  <div className="space-y-2 text-sm text-white text-opacity-90">
                     <p><span className="font-medium">Name:</span> {formData.fullName}</p>
                     <p><span className="font-medium">Gender:</span> {formData.gender}</p>
                     <p><span className="font-medium">College:</span> {formData.collegeName}</p>
@@ -867,7 +921,7 @@ const firebaseConfig = {
 
                 <button
                   onClick={() => window.location.href = '/matching'}
-                  className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
+                  className="w-full py-4 btn-valentine text-white rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
                 >
                   Start Matching
                 </button>
@@ -880,26 +934,36 @@ const firebaseConfig = {
       };
 
       return (
-        <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 py-8 px-4">
-          <div className="max-w-2xl mx-auto">
+        <div className="min-h-screen py-8 px-4 flex items-center justify-center">
+          <div className="max-w-2xl w-full mx-auto">
+            {/* Brand Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl md:text-5xl font-bold brand-gold mb-2" style={{ letterSpacing: '2px' }}>
+                YOUR ♡ VALENTINE
+              </h1>
+              <p className="text-white text-lg font-medium">Find Love That Lasts, On Campus.</p>
+            </div>
+
+            {/* Progress Bar */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-sm font-medium text-white">
                   Step {step} of 7
                 </span>
-                <span className="text-sm font-medium text-rose-600">
+                <span className="text-sm font-medium brand-gold">
                   {Math.round((step / 7) * 100)}%
                 </span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-white bg-opacity-20 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-rose-500 to-pink-600 transition-all duration-500 ease-out"
+                  className="h-full progress-bar-valentine transition-all duration-500 ease-out"
                   style={{ width: `${(step / 7) * 100}%` }}
                 />
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-xl p-8 mb-6">
+            {/* Glass Card */}
+            <div className="glass-card rounded-3xl p-8 mb-6">
               {renderStep()}
             </div>
 
@@ -907,7 +971,7 @@ const firebaseConfig = {
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep(step - 1)}
-                  className="px-6 py-3 bg-white border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:border-gray-300 transition-colors flex items-center gap-2"
+                  className="px-6 py-3 bg-white bg-opacity-10 border-2 border-white border-opacity-30 rounded-xl font-semibold text-white hover:bg-opacity-20 transition-all flex items-center gap-2 backdrop-blur-sm"
                 >
                   <ChevronLeft className="w-5 h-5" />
                   Back
@@ -924,8 +988,8 @@ const firebaseConfig = {
                   disabled={!canProceed() || loading}
                   className={`flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                     canProceed() && !loading
-                      ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg transform hover:scale-[1.02]'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'btn-valentine text-white hover:shadow-lg transform hover:scale-[1.02]'
+                      : 'bg-gray-400 bg-opacity-30 text-gray-300 cursor-not-allowed'
                   }`}
                 >
                   {loading ? (
