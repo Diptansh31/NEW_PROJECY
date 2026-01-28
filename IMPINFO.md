@@ -9,3 +9,5 @@ Template ID:template_6lrb5te
 first key of captcha(site key) : 6LdifFksAAAAANBgpOhPSIkBkzA6Qs3x0x-2eTrN
 <br>
 secrate key : 6LdifFksAAAAAO3Xh9ZuWHSdsAA4nUGqU2F1_xCr
+<br>
+private key : 0eSPOeQALokRZHE7pVqB4
