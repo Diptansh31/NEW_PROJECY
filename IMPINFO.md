@@ -4,3 +4,5 @@ service code og emailjs : service_5o78aj6
 <br>
 public API key of EMAILJS : vMHaw0fLsCU1hg1NL
 <br>
+Template ID:template_6lrb5te
+<br>
