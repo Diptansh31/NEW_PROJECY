@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dating App Registration</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  
+  <!-- React and other libraries -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -22,7 +31,42 @@
   <script type="text/babel">
     const { useState, useRef, useEffect } = React;
 
-    // Lucide React Icons as simple SVG components
+    // ============================================
+    // FIREBASE CONFIGURATION
+    // ============================================
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBBl4QWQXIhNtUQVHajwaCeL7a69FYeXIc",
+  authDomain: "datingapp-c9511.firebaseapp.com",
+  projectId: "datingapp-c9511",
+  storageBucket: "datingapp-c9511.firebasestorage.app",
+  messagingSenderId: "232861031726",
+  appId: "1:232861031726:web:6cfe58feda9c4563a12ebf",
+  measurementId: "G-K9Z221KQB2"
+};
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ============================================
+    // EMAILJS CONFIGURATION
+    // ============================================
+    // Replace with your EmailJS credentials
+    const EMAILJS_PUBLIC_KEY = "vMHaw0fLsCU1hg1NL";
+    const EMAILJS_SERVICE_ID = "service_5o78aj6";
+    const EMAILJS_TEMPLATE_ID = "template_6lrb5te";
+
+    // Initialize EmailJS
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    // ============================================
+    // ICONS COMPONENTS
+    // ============================================
     const Heart = ({ className, fill }) => (
       <svg className={className} fill={fill || "none"} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -84,6 +128,16 @@
       </svg>
     );
 
+    const Loader = ({ className }) => (
+      <svg className={`${className} animate-spin`} fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    );
+
+    // ============================================
+    // MAIN COMPONENT
+    // ============================================
     function DatingAppRegistration() {
       const [step, setStep] = useState(1);
       const [formData, setFormData] = useState({
@@ -105,6 +159,7 @@
       const [timer, setTimer] = useState(0);
       const [customInterest, setCustomInterest] = useState('');
       const [errors, setErrors] = useState({});
+      const [loading, setLoading] = useState(false);
       const fileInputRef = useRef(null);
       const otpInputs = useRef([]);
 
@@ -144,7 +199,9 @@
         }
       }, [timer]);
 
-      // Parse college email format: name.initial.branch.year@college.domain
+      // ============================================
+      // EMAIL PARSING AND VALIDATION
+      // ============================================
       const parseCollegeEmail = (email) => {
         const emailRegex = /^([a-zA-Z]+)([a-zA-Z]?)\.([a-zA-Z]+)\.(\d{2})@([a-zA-Z]+)\.(ac\.in|edu)$/;
         const match = email.match(emailRegex);
@@ -154,7 +211,6 @@
           const year = 2000 + parseInt(yearShort);
           const branchCodeLower = branchCode.toLowerCase();
           
-          // Check if branch code is valid
           if (!VALID_BRANCHES[branchCodeLower]) {
             return {
               valid: false,
@@ -174,58 +230,144 @@
             college: college.toUpperCase()
           };
         }
-        return { valid: false, outOfCampus: false };
-      };
-
-      const handleSendOtp = () => {
-        const parsed = parseCollegeEmail(formData.collegeEmail);
         
-        if (!parsed.valid && !parsed.outOfCampus) {
-          setErrors({ 
-            ...errors, 
-            email: 'You are not in NITJ DATABASE'
-          });
-          return;
-        }
-
-        if (parsed.outOfCampus) {
-          setErrors({ 
-            ...errors, 
-            email: `OUT OF CAMPUS: Branch code "${parsed.branchCode}" is not recognized. Please use a valid branch code.` 
-          });
-          return;
-        }
-
-        // Generate 6-digit OTP
-        const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        setGeneratedOtp(newOtp);
-        setOtpSent(true);
-        setTimer(120); // 2 minutes timer
-        setErrors({ ...errors, email: '' });
-
-        // Store parsed info
-        setFormData({
-          ...formData,
-          graduationYear: parsed.year,
-          collegeName: parsed.college,
-          branch: parsed.branch,
-          branchCode: parsed.branchCode
-        });
-
-        // In a real app, this would call an API to send email
-        console.log('OTP sent to:', formData.collegeEmail);
-        console.log('Generated OTP:', newOtp); // For demo purposes only
-        alert(`OTP sent to ${formData.collegeEmail}\n\nFor demo purposes, your OTP is: ${newOtp}\n\n(In production, this would be sent via email)`);
+        return { valid: false };
       };
 
+      // ============================================
+      // OTP GENERATION AND SENDING
+      // ============================================
+      const generateOTP = () => {
+        return Math.floor(100000 + Math.random() * 900000).toString();
+      };
+
+      const sendOTP = async () => {
+        setLoading(true);
+        setErrors({});
+        
+        const emailData = parseCollegeEmail(formData.collegeEmail);
+        
+        if (!emailData.valid) {
+          if (emailData.outOfCampus) {
+            setErrors({ email: `Invalid branch code: ${emailData.branchCode}. This appears to be an out-of-campus email.` });
+          } else {
+            setErrors({ email: 'Please enter a valid college email in format: name.initial.branch.year@college.ac.in' });
+          }
+          setLoading(false);
+          return;
+        }
+
+        try {
+          // Check if email already exists in database
+          const emailCheck = await db.collection('users')
+            .where('collegeEmail', '==', formData.collegeEmail)
+            .get();
+          
+          if (!emailCheck.empty) {
+            setErrors({ email: 'This email is already registered!' });
+            setLoading(false);
+            return;
+          }
+
+          // Generate OTP
+          const newOtp = generateOTP();
+          setGeneratedOtp(newOtp);
+          
+          // Send OTP via EmailJS
+          const templateParams = {
+            to_email: formData.collegeEmail,
+            otp_code: newOtp,
+            user_name: emailData.firstName
+          };
+
+          await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams
+          );
+
+          // Update form data
+          setFormData({
+            ...formData,
+            graduationYear: emailData.year,
+            collegeName: emailData.college,
+            branch: emailData.branch,
+            branchCode: emailData.branchCode
+          });
+
+          setOtpSent(true);
+          setTimer(120); // 2 minutes timer
+          setErrors({});
+          
+        } catch (error) {
+          console.error('Error sending OTP:', error);
+          setErrors({ email: 'Failed to send OTP. Please check your email and try again.' });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const verifyOTP = async () => {
+        const enteredOtp = otp.join('');
+        
+        if (enteredOtp === generatedOtp) {
+          setFormData({ ...formData, isVerified: true });
+          setErrors({});
+          setStep(2);
+        } else {
+          setErrors({ otp: 'Invalid OTP. Please try again.' });
+          setOtp(['', '', '', '', '', '']);
+          if (otpInputs.current[0]) {
+            otpInputs.current[0].focus();
+          }
+        }
+      };
+
+      const resendOTP = async () => {
+        if (timer > 0) return;
+        
+        setLoading(true);
+        const newOtp = generateOTP();
+        setGeneratedOtp(newOtp);
+        
+        try {
+          const emailData = parseCollegeEmail(formData.collegeEmail);
+          const templateParams = {
+            to_email: formData.collegeEmail,
+            otp_code: newOtp,
+            user_name: emailData.firstName
+          };
+
+          await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams
+          );
+
+          setTimer(120);
+          setOtp(['', '', '', '', '', '']);
+          setErrors({});
+          if (otpInputs.current[0]) {
+            otpInputs.current[0].focus();
+          }
+        } catch (error) {
+          console.error('Error resending OTP:', error);
+          setErrors({ otp: 'Failed to resend OTP. Please try again.' });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // ============================================
+      // OTP INPUT HANDLING
+      // ============================================
       const handleOtpChange = (index, value) => {
-        if (value.length > 1) return; // Only single digit
+        if (!/^\d*$/.test(value)) return;
         
         const newOtp = [...otp];
         newOtp[index] = value;
         setOtp(newOtp);
 
-        // Auto-focus next input
         if (value && index < 5) {
           otpInputs.current[index + 1]?.focus();
         }
@@ -237,31 +379,40 @@
         }
       };
 
-      const handleVerifyOtp = () => {
-        const enteredOtp = otp.join('');
-        
-        if (enteredOtp === generatedOtp) {
-          setFormData({ ...formData, isVerified: true });
-          setErrors({ ...errors, otp: '' });
-          setTimeout(() => setStep(2), 800);
+      const handleOtpPaste = (e) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 6);
+        if (!/^\d+$/.test(pastedData)) return;
+
+        const newOtp = pastedData.split('');
+        while (newOtp.length < 6) newOtp.push('');
+        setOtp(newOtp);
+
+        const nextEmptyIndex = newOtp.findIndex(val => !val);
+        if (nextEmptyIndex !== -1) {
+          otpInputs.current[nextEmptyIndex]?.focus();
         } else {
-          setErrors({ ...errors, otp: 'Invalid OTP. Please try again.' });
-          setOtp(['', '', '', '', '', '']);
-          otpInputs.current[0]?.focus();
+          otpInputs.current[5]?.focus();
         }
       };
 
-      const handleResendOtp = () => {
-        if (timer > 0) return;
-        handleSendOtp();
-      };
-
+      // ============================================
+      // IMAGE HANDLING
+      // ============================================
       const handleImageUpload = (e) => {
         const files = Array.from(e.target.files);
-        const newImages = files.map(file => URL.createObjectURL(file));
-        setFormData({
-          ...formData,
-          profilePictures: [...formData.profilePictures, ...newImages].slice(0, 6)
+        
+        files.forEach(file => {
+          if (formData.profilePictures.length >= 6) return;
+          
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setFormData(prev => ({
+              ...prev,
+              profilePictures: [...prev.profilePictures, reader.result]
+            }));
+          };
+          reader.readAsDataURL(file);
         });
       };
 
@@ -272,13 +423,16 @@
         });
       };
 
+      // ============================================
+      // INTERESTS HANDLING
+      // ============================================
       const toggleInterest = (interest) => {
         if (formData.interests.includes(interest)) {
           setFormData({
             ...formData,
             interests: formData.interests.filter(i => i !== interest)
           });
-        } else {
+        } else if (formData.interests.length < 10) {
           setFormData({
             ...formData,
             interests: [...formData.interests, interest]
@@ -287,29 +441,78 @@
       };
 
       const addCustomInterest = () => {
-        if (customInterest.trim() && !formData.interests.includes(customInterest.trim())) {
+        const trimmed = customInterest.trim();
+        if (trimmed && !formData.interests.includes(trimmed) && formData.interests.length < 10) {
           setFormData({
             ...formData,
-            interests: [...formData.interests, customInterest.trim()]
+            interests: [...formData.interests, trimmed]
           });
           setCustomInterest('');
         }
       };
 
+      // ============================================
+      // FORM VALIDATION
+      // ============================================
       const canProceed = () => {
-        switch(step) {
-          case 1: return formData.isVerified;
-          case 2: return formData.fullName.trim().length > 0;
-          case 3: return formData.gender !== '';
-          case 4: return formData.profilePictures.length >= 2;
-          case 5: return formData.interests.length >= 5;
-          case 6: return formData.bio.trim().length > 0;
-          default: return false;
+        switch (step) {
+          case 1:
+            return formData.isVerified;
+          case 2:
+            return formData.fullName.trim().length >= 2;
+          case 3:
+            return formData.gender !== '';
+          case 4:
+            return formData.profilePictures.length >= 2;
+          case 5:
+            return formData.interests.length >= 5;
+          case 6:
+            return formData.bio.trim().length >= 50;
+          default:
+            return true;
         }
       };
 
+      // ============================================
+      // FINAL REGISTRATION
+      // ============================================
+      const handleFinalRegistration = async () => {
+        setLoading(true);
+        
+        try {
+          // Save user data to Firestore
+          const userData = {
+            collegeEmail: formData.collegeEmail,
+            fullName: formData.fullName,
+            gender: formData.gender,
+            collegeName: formData.collegeName,
+            branch: formData.branch,
+            branchCode: formData.branchCode,
+            graduationYear: formData.graduationYear,
+            interests: formData.interests,
+            bio: formData.bio,
+            profilePicturesCount: formData.profilePictures.length,
+            // Note: In production, upload images to Firebase Storage and save URLs
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+
+          await db.collection('users').add(userData);
+          
+          setStep(7);
+        } catch (error) {
+          console.error('Error saving user data:', error);
+          alert('Failed to complete registration. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // ============================================
+      // RENDER STEPS
+      // ============================================
       const renderStep = () => {
-        switch(step) {
+        switch (step) {
           case 1:
             return (
               <div className="space-y-6">
@@ -318,164 +521,111 @@
                     <Heart className="w-8 h-8 text-white" fill="white" />
                   </div>
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
-                    Verify Your College
+                    Welcome to Campus Connect
                   </h2>
-                  <p className="text-gray-600">Connect with students from your campus</p>
+                  <p className="text-gray-600">Verify your college email to get started</p>
                 </div>
-                
-                {!formData.isVerified ? (
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    College Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="name.initial.branch.year@college.ac.in"
+                      value={formData.collegeEmail}
+                      onChange={(e) => setFormData({ ...formData, collegeEmail: e.target.value.toLowerCase() })}
+                      disabled={otpSent}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors disabled:bg-gray-50"
+                    />
+                  </div>
+                  {errors.email && (
+                    <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{errors.email}</span>
+                    </div>
+                  )}
+                </div>
+
+                {!otpSent ? (
+                  <button
+                    onClick={sendOTP}
+                    disabled={loading || !formData.collegeEmail}
+                    className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader className="w-5 h-5" />
+                        Sending OTP...
+                      </>
+                    ) : (
+                      'Send OTP'
+                    )}
+                  </button>
+                ) : (
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        College Email Address
+                        Enter 6-digit OTP
                       </label>
-                      <div className="relative">
-                        <input
-                          type="email"
-                          placeholder="xyza.br.2x@nitj.ac.in"
-                          value={formData.collegeEmail}
-                          onChange={(e) => setFormData({ ...formData, collegeEmail: e.target.value.toLowerCase() })}
-                          className="w-full px-4 py-3 pl-11 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
-                          disabled={otpSent}
-                        />
-                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      <div className="flex gap-2 justify-center">
+                        {otp.map((digit, index) => (
+                          <input
+                            key={index}
+                            ref={el => otpInputs.current[index] = el}
+                            type="text"
+                            maxLength="1"
+                            value={digit}
+                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                            onPaste={handleOtpPaste}
+                            className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                          />
+                        ))}
                       </div>
-                      {errors.email && (
-                        <div className={`mt-2 p-3 rounded-lg flex items-start gap-2 ${
-                          errors.email.includes('OUT OF CAMPUS') 
-                            ? 'bg-red-50 border-2 border-red-500' 
-                            : 'bg-red-50'
-                        }`}>
-                          <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                            errors.email.includes('OUT OF CAMPUS') ? 'text-red-600' : 'text-red-500'
-                          }`} />
-                          <p className={`text-sm ${
-                            errors.email.includes('OUT OF CAMPUS') ? 'text-red-900 font-semibold' : 'text-red-700'
-                          }`}>
-                            {errors.email}
-                          </p>
+                      {errors.otp && (
+                        <div className="mt-2 flex items-center gap-2 text-red-600 text-sm justify-center">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>{errors.otp}</span>
                         </div>
                       )}
-                      <div className="mt-2 space-y-1">
-                        <p className="text-xs text-gray-500">
-                          Format: firstname.lastname.branch.year@college.ac.in
-                        </p>
-                        <details hidden className="text-xs text-gray-500">
-                          <summary className="cursor-pointer hover:text-gray-700 font-medium">
-                            Valid Branch Codes
-                          </summary>
-                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
-                            <div><span className="font-semibold">BT:</span> Bio Technology</div>
-                            <div><span className="font-semibold">CH:</span> Chemical Engg.</div>
-                            <div><span className="font-semibold">CE:</span> Civil Engg.</div>
-                            <div><span className="font-semibold">CS/CSE:</span> Computer Science</div>
-                            <div><span className="font-semibold">EC/ECE:</span> Electronics & Comm.</div>
-                            <div><span className="font-semibold">EE:</span> Electrical Engg.</div>
-                            <div><span className="font-semibold">ICE:</span> Instrumentation</div>
-                            <div><span className="font-semibold">IP:</span> Industrial & Production</div>
-                            <div><span className="font-semibold">IT:</span> Information Tech.</div>
-                            <div><span className="font-semibold">ME:</span> Mechanical Engg.</div>
-                            <div><span className="font-semibold">TT:</span> Textile Technology</div>
-                          </div>
-                        </details>
-                      </div>
                     </div>
 
-                    {!otpSent ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Clock className="w-4 h-4" />
+                        <span>
+                          {timer > 0 ? `${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, '0')}` : 'OTP Expired'}
+                        </span>
+                      </div>
                       <button
-                        onClick={handleSendOtp}
-                        className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all"
+                        onClick={resendOTP}
+                        disabled={timer > 0 || loading}
+                        className="text-rose-600 font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Send OTP
+                        {loading ? 'Sending...' : 'Resend OTP'}
                       </button>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-                          <div className="flex items-start gap-3">
-                            <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
-                            <div>
-                              <p className="font-semibold text-blue-900">OTP Sent!</p>
-                              <p className="text-sm text-blue-700">
-                                Check your email: {formData.collegeEmail}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-3">
-                            Enter 6-Digit OTP
-                          </label>
-                          <div className="flex gap-2 justify-center">
-                            {otp.map((digit, index) => (
-                              <input
-                                key={index}
-                                ref={el => otpInputs.current[index] = el}
-                                type="text"
-                                inputMode="numeric"
-                                maxLength="1"
-                                value={digit}
-                                onChange={(e) => handleOtpChange(index, e.target.value)}
-                                onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                                className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
-                              />
-                            ))}
-                          </div>
-                          {errors.otp && <p className="text-red-500 text-sm mt-2 text-center">{errors.otp}</p>}
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <button
-                            onClick={handleResendOtp}
-                            disabled={timer > 0}
-                            className={`font-medium ${
-                              timer > 0 
-                                ? 'text-gray-400 cursor-not-allowed' 
-                                : 'text-rose-600 hover:text-rose-700'
-                            }`}
-                          >
-                            Resend OTP
-                          </button>
-                          {timer > 0 && (
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <Clock className="w-4 h-4" />
-                              <span>{Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={handleVerifyOtp}
-                          disabled={otp.join('').length !== 6}
-                          className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                            otp.join('').length === 6
-                              ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg transform hover:scale-[1.02]'
-                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          }`}
-                        >
-                          Verify OTP
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                        <Check className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-green-900">Email Verified!</p>
-                        <p className="text-sm text-green-700">
-                          {formData.collegeName} - Class of {formData.graduationYear}
-                        </p>
-                      </div>
                     </div>
-                    <div className="pl-13 text-sm text-green-700">
-                      Branch: {formData.branch} ({formData.branchCode})
-                    </div>
+
+                    <button
+                      onClick={verifyOTP}
+                      disabled={otp.some(d => !d)}
+                      className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Verify OTP
+                    </button>
                   </div>
                 )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Email Format:</strong> name.initial.branch.year@college.ac.in
+                    <br />
+                    <strong>Example:</strong> john.d.cs.23@xyz.ac.in
+                  </p>
+                </div>
               </div>
             );
 
@@ -486,7 +636,7 @@
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
                     What's Your Name?
                   </h2>
-                  <p className="text-gray-600">This is how others will see you</p>
+                  <p className="text-gray-600">This is how you'll appear to others</p>
                 </div>
                 
                 <div>
@@ -498,9 +648,19 @@
                     placeholder="Enter your full name"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors text-lg"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
                     autoFocus
                   />
+                </div>
+
+                <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl p-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Your Profile Info:</p>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>📧 {formData.collegeEmail}</p>
+                    <p>🎓 {formData.collegeName}</p>
+                    <p>📚 {formData.branch} ({formData.branchCode})</p>
+                    <p>📅 Class of {formData.graduationYear}</p>
+                  </div>
                 </div>
               </div>
             );
@@ -512,21 +672,21 @@
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
                     Select Your Gender
                   </h2>
-                  <p className="text-gray-600">You can change this later</p>
+                  <p className="text-gray-600">Help us personalize your experience</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   {genderOptions.map((gender) => (
                     <button
                       key={gender}
                       onClick={() => setFormData({ ...formData, gender })}
-                      className={`py-4 px-6 rounded-xl border-2 font-medium transition-all transform hover:scale-[1.02] ${
+                      className={`p-6 rounded-2xl border-2 transition-all transform hover:scale-105 ${
                         formData.gender === gender
-                          ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white border-transparent shadow-lg'
-                          : 'bg-white border-gray-200 text-gray-700 hover:border-rose-300'
+                          ? 'border-rose-500 bg-gradient-to-br from-rose-50 to-pink-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      {gender}
+                      <span className="text-lg font-semibold">{gender}</span>
                     </button>
                   ))}
                 </div>
@@ -540,22 +700,22 @@
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
                     Add Your Photos
                   </h2>
-                  <p className="text-gray-600">Upload at least 2 photos (max 6)</p>
+                  <p className="text-gray-600">Add at least 2 photos (max 6)</p>
                 </div>
-                
-                <div className="grid grid-cols-3 gap-3">
-                  {formData.profilePictures.map((img, index) => (
-                    <div key={index} className="relative aspect-square group">
+
+                <div className="grid grid-cols-3 gap-4">
+                  {formData.profilePictures.map((pic, index) => (
+                    <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group">
                       <img
-                        src={img}
+                        src={pic}
                         alt={`Profile ${index + 1}`}
-                        className="w-full h-full object-cover rounded-xl"
+                        className="w-full h-full object-cover"
                       />
                       <button
                         onClick={() => removeImage(index)}
-                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                       >
-                        <X className="w-5 h-5 text-white" />
+                        <X className="w-5 h-5" />
                       </button>
                     </div>
                   ))}
@@ -563,14 +723,16 @@
                   {formData.profilePictures.length < 6 && (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-rose-500 hover:bg-rose-50 transition-colors"
+                      className="aspect-square border-2 border-dashed border-gray-300 rounded-2xl hover:border-rose-500 transition-colors flex flex-col items-center justify-center gap-2 group"
                     >
-                      <Camera className="w-8 h-8 text-gray-400" />
-                      <span className="text-sm text-gray-500 font-medium">Add Photo</span>
+                      <Camera className="w-8 h-8 text-gray-400 group-hover:text-rose-500 transition-colors" />
+                      <span className="text-sm text-gray-500 group-hover:text-rose-500 transition-colors">
+                        Add Photo
+                      </span>
                     </button>
                   )}
                 </div>
-                
+
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -579,12 +741,6 @@
                   onChange={handleImageUpload}
                   className="hidden"
                 />
-                
-                {formData.profilePictures.length > 0 && formData.profilePictures.length < 2 && (
-                  <p className="text-center text-sm text-amber-600">
-                    Add {2 - formData.profilePictures.length} more {formData.profilePictures.length === 1 ? 'photo' : 'photos'} to continue
-                  </p>
-                )}
               </div>
             );
 
@@ -595,10 +751,10 @@
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
                     Your Interests
                   </h2>
-                  <p className="text-gray-600">Select at least 5 interests</p>
+                  <p className="text-gray-600">Select at least 5 (max 10)</p>
                 </div>
-                
-                <div className="flex flex-wrap gap-2">
+
+                <div className="flex flex-wrap gap-2 justify-center">
                   {predefinedInterests.map((interest) => (
                     <button
                       key={interest}
@@ -659,7 +815,7 @@
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
                     Tell Us About Yourself
                   </h2>
-                  <p className="text-gray-600">Write a bio that stands out</p>
+                  <p className="text-gray-600">Write a bio that stands out (min 50 characters)</p>
                 </div>
                 
                 <div>
@@ -674,6 +830,11 @@
                     rows="6"
                     autoFocus
                   />
+                  {formData.bio.length < 50 && (
+                    <p className="text-sm text-amber-600 mt-2">
+                      {50 - formData.bio.length} more characters needed
+                    </p>
+                  )}
                 </div>
               </div>
             );
@@ -705,7 +866,7 @@
                 </div>
 
                 <button
-                  onClick={() => alert('Registration complete! In a real app, this would save your data and redirect to the matching page.')}
+                  onClick={() => window.location.href = '/matching'}
                   className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
                 >
                   Start Matching
@@ -753,16 +914,31 @@
                 </button>
                 
                 <button
-                  onClick={() => setStep(step + 1)}
-                  disabled={!canProceed()}
+                  onClick={() => {
+                    if (step === 6) {
+                      handleFinalRegistration();
+                    } else {
+                      setStep(step + 1);
+                    }
+                  }}
+                  disabled={!canProceed() || loading}
                   className={`flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    canProceed()
+                    canProceed() && !loading
                       ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg transform hover:scale-[1.02]'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  Continue
-                  <ChevronRight className="w-5 h-5" />
+                  {loading ? (
+                    <>
+                      <Loader className="w-5 h-5" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      {step === 6 ? 'Complete Registration' : 'Continue'}
+                      <ChevronRight className="w-5 h-5" />
+                    </>
+                  )}
                 </button>
               </div>
             )}
