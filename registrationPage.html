@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dating App Registration</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    // Lucide React Icons as simple SVG components
+    const Heart = ({ className, fill }) => (
+      <svg className={className} fill={fill || "none"} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    );
+
+    const Mail = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    );
+
+    const AlertTriangle = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    );
+
+    const Camera = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+
+    const Plus = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+    );
+
+    const X = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+
+    const Check = ({ className, strokeWidth }) => (
+      <svg className={className} fill="none" stroke="currentColor" strokeWidth={strokeWidth || 2} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    );
+
+    const ChevronRight = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    );
+
+    const ChevronLeft = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      </svg>
+    );
+
+    const Clock = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+
+    function DatingAppRegistration() {
+      const [step, setStep] = useState(1);
+      const [formData, setFormData] = useState({
+        collegeEmail: '',
+        isVerified: false,
+        graduationYear: null,
+        collegeName: '',
+        branch: '',
+        branchCode: '',
+        fullName: '',
+        gender: '',
+        profilePictures: [],
+        interests: [],
+        bio: ''
+      });
+      const [otpSent, setOtpSent] = useState(false);
+      const [otp, setOtp] = useState(['', '', '', '', '', '']);
+      const [generatedOtp, setGeneratedOtp] = useState('');
+      const [timer, setTimer] = useState(0);
+      const [customInterest, setCustomInterest] = useState('');
+      const [errors, setErrors] = useState({});
+      const fileInputRef = useRef(null);
+      const otpInputs = useRef([]);
+
+      // Branch codes mapping
+      const VALID_BRANCHES = {
+        'bt': 'Bio Technology',
+        'ch': 'Chemical Engineering',
+        'ce': 'Civil Engineering',
+        'cs': 'Computer Science and Engineering',
+        'cse': 'Computer Science and Engineering',
+        'ec': 'Electronics and Communication Engineering',
+        'ece': 'Electronics and Communication Engineering',
+        'ee': 'Electrical Engineering',
+        'ice': 'Instrumentation and Control Engineering',
+        'ip': 'Industrial and Production Engineering',
+        'it': 'Information Technology',
+        'me': 'Mechanical Engineering',
+        'tt': 'Textile Technology'
+      };
+
+      const predefinedInterests = [
+        'Music', 'Travel', 'Fitness', 'Photography', 'Cooking',
+        'Reading', 'Movies', 'Gaming', 'Art', 'Dancing',
+        'Sports', 'Yoga', 'Hiking', 'Coffee', 'Fashion',
+        'Tech', 'Writing', 'Volunteering', 'Foodie', 'Nature'
+      ];
+
+      const genderOptions = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+
+      // Timer countdown
+      useEffect(() => {
+        if (timer > 0) {
+          const interval = setInterval(() => {
+            setTimer(prev => prev - 1);
+          }, 1000);
+          return () => clearInterval(interval);
+        }
+      }, [timer]);
+
+      // Parse college email format: name.initial.branch.year@college.domain
+      const parseCollegeEmail = (email) => {
+        const emailRegex = /^([a-zA-Z]+)([a-zA-Z]?)\.([a-zA-Z]+)\.(\d{2})@([a-zA-Z]+)\.(ac\.in|edu)$/;
+        const match = email.match(emailRegex);
+        
+        if (match) {
+          const [, firstName, lastInitial, branchCode, yearShort, college] = match;
+          const year = 2000 + parseInt(yearShort);
+          const branchCodeLower = branchCode.toLowerCase();
+          
+          // Check if branch code is valid
+          if (!VALID_BRANCHES[branchCodeLower]) {
+            return {
+              valid: false,
+              outOfCampus: true,
+              branchCode: branchCode.toUpperCase()
+            };
+          }
+          
+          return {
+            valid: true,
+            outOfCampus: false,
+            firstName,
+            lastInitial,
+            branchCode: branchCode.toUpperCase(),
+            branch: VALID_BRANCHES[branchCodeLower],
+            year,
+            college: college.toUpperCase()
+          };
+        }
+        return { valid: false, outOfCampus: false };
+      };
+
+      const handleSendOtp = () => {
+        const parsed = parseCollegeEmail(formData.collegeEmail);
+        
+        if (!parsed.valid && !parsed.outOfCampus) {
+          setErrors({ 
+            ...errors, 
+            email: 'You are not in NITJ DATABASE'
+          });
+          return;
+        }
+
+        if (parsed.outOfCampus) {
+          setErrors({ 
+            ...errors, 
+            email: `OUT OF CAMPUS: Branch code "${parsed.branchCode}" is not recognized. Please use a valid branch code.` 
+          });
+          return;
+        }
+
+        // Generate 6-digit OTP
+        const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        setGeneratedOtp(newOtp);
+        setOtpSent(true);
+        setTimer(120); // 2 minutes timer
+        setErrors({ ...errors, email: '' });
+
+        // Store parsed info
+        setFormData({
+          ...formData,
+          graduationYear: parsed.year,
+          collegeName: parsed.college,
+          branch: parsed.branch,
+          branchCode: parsed.branchCode
+        });
+
+        // In a real app, this would call an API to send email
+        console.log('OTP sent to:', formData.collegeEmail);
+        console.log('Generated OTP:', newOtp); // For demo purposes only
+        alert(`OTP sent to ${formData.collegeEmail}\n\nFor demo purposes, your OTP is: ${newOtp}\n\n(In production, this would be sent via email)`);
+      };
+
+      const handleOtpChange = (index, value) => {
+        if (value.length > 1) return; // Only single digit
+        
+        const newOtp = [...otp];
+        newOtp[index] = value;
+        setOtp(newOtp);
+
+        // Auto-focus next input
+        if (value && index < 5) {
+          otpInputs.current[index + 1]?.focus();
+        }
+      };
+
+      const handleOtpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otp[index] && index > 0) {
+          otpInputs.current[index - 1]?.focus();
+        }
+      };
+
+      const handleVerifyOtp = () => {
+        const enteredOtp = otp.join('');
+        
+        if (enteredOtp === generatedOtp) {
+          setFormData({ ...formData, isVerified: true });
+          setErrors({ ...errors, otp: '' });
+          setTimeout(() => setStep(2), 800);
+        } else {
+          setErrors({ ...errors, otp: 'Invalid OTP. Please try again.' });
+          setOtp(['', '', '', '', '', '']);
+          otpInputs.current[0]?.focus();
+        }
+      };
+
+      const handleResendOtp = () => {
+        if (timer > 0) return;
+        handleSendOtp();
+      };
+
+      const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        const newImages = files.map(file => URL.createObjectURL(file));
+        setFormData({
+          ...formData,
+          profilePictures: [...formData.profilePictures, ...newImages].slice(0, 6)
+        });
+      };
+
+      const removeImage = (index) => {
+        setFormData({
+          ...formData,
+          profilePictures: formData.profilePictures.filter((_, i) => i !== index)
+        });
+      };
+
+      const toggleInterest = (interest) => {
+        if (formData.interests.includes(interest)) {
+          setFormData({
+            ...formData,
+            interests: formData.interests.filter(i => i !== interest)
+          });
+        } else {
+          setFormData({
+            ...formData,
+            interests: [...formData.interests, interest]
+          });
+        }
+      };
+
+      const addCustomInterest = () => {
+        if (customInterest.trim() && !formData.interests.includes(customInterest.trim())) {
+          setFormData({
+            ...formData,
+            interests: [...formData.interests, customInterest.trim()]
+          });
+          setCustomInterest('');
+        }
+      };
+
+      const canProceed = () => {
+        switch(step) {
+          case 1: return formData.isVerified;
+          case 2: return formData.fullName.trim().length > 0;
+          case 3: return formData.gender !== '';
+          case 4: return formData.profilePictures.length >= 2;
+          case 5: return formData.interests.length >= 5;
+          case 6: return formData.bio.trim().length > 0;
+          default: return false;
+        }
+      };
+
+      const renderStep = () => {
+        switch(step) {
+          case 1:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 mb-4">
+                    <Heart className="w-8 h-8 text-white" fill="white" />
+                  </div>
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                    Verify Your College
+                  </h2>
+                  <p className="text-gray-600">Connect with students from your campus</p>
+                </div>
+                
+                {!formData.isVerified ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        College Email Address
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          placeholder="xyza.br.2x@nitj.ac.in"
+                          value={formData.collegeEmail}
+                          onChange={(e) => setFormData({ ...formData, collegeEmail: e.target.value.toLowerCase() })}
+                          className="w-full px-4 py-3 pl-11 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                          disabled={otpSent}
+                        />
+                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      </div>
+                      {errors.email && (
+                        <div className={`mt-2 p-3 rounded-lg flex items-start gap-2 ${
+                          errors.email.includes('OUT OF CAMPUS') 
+                            ? 'bg-red-50 border-2 border-red-500' 
+                            : 'bg-red-50'
+                        }`}>
+                          <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                            errors.email.includes('OUT OF CAMPUS') ? 'text-red-600' : 'text-red-500'
+                          }`} />
+                          <p className={`text-sm ${
+                            errors.email.includes('OUT OF CAMPUS') ? 'text-red-900 font-semibold' : 'text-red-700'
+                          }`}>
+                            {errors.email}
+                          </p>
+                        </div>
+                      )}
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs text-gray-500">
+                          Format: firstname.lastname.branch.year@college.ac.in
+                        </p>
+                        <details hidden className="text-xs text-gray-500">
+                          <summary className="cursor-pointer hover:text-gray-700 font-medium">
+                            Valid Branch Codes
+                          </summary>
+                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 pl-2">
+                            <div><span className="font-semibold">BT:</span> Bio Technology</div>
+                            <div><span className="font-semibold">CH:</span> Chemical Engg.</div>
+                            <div><span className="font-semibold">CE:</span> Civil Engg.</div>
+                            <div><span className="font-semibold">CS/CSE:</span> Computer Science</div>
+                            <div><span className="font-semibold">EC/ECE:</span> Electronics & Comm.</div>
+                            <div><span className="font-semibold">EE:</span> Electrical Engg.</div>
+                            <div><span className="font-semibold">ICE:</span> Instrumentation</div>
+                            <div><span className="font-semibold">IP:</span> Industrial & Production</div>
+                            <div><span className="font-semibold">IT:</span> Information Tech.</div>
+                            <div><span className="font-semibold">ME:</span> Mechanical Engg.</div>
+                            <div><span className="font-semibold">TT:</span> Textile Technology</div>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+
+                    {!otpSent ? (
+                      <button
+                        onClick={handleSendOtp}
+                        className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all"
+                      >
+                        Send OTP
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                          <div className="flex items-start gap-3">
+                            <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
+                            <div>
+                              <p className="font-semibold text-blue-900">OTP Sent!</p>
+                              <p className="text-sm text-blue-700">
+                                Check your email: {formData.collegeEmail}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-3">
+                            Enter 6-Digit OTP
+                          </label>
+                          <div className="flex gap-2 justify-center">
+                            {otp.map((digit, index) => (
+                              <input
+                                key={index}
+                                ref={el => otpInputs.current[index] = el}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength="1"
+                                value={digit}
+                                onChange={(e) => handleOtpChange(index, e.target.value)}
+                                onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                                className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                              />
+                            ))}
+                          </div>
+                          {errors.otp && <p className="text-red-500 text-sm mt-2 text-center">{errors.otp}</p>}
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm">
+                          <button
+                            onClick={handleResendOtp}
+                            disabled={timer > 0}
+                            className={`font-medium ${
+                              timer > 0 
+                                ? 'text-gray-400 cursor-not-allowed' 
+                                : 'text-rose-600 hover:text-rose-700'
+                            }`}
+                          >
+                            Resend OTP
+                          </button>
+                          {timer > 0 && (
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <Clock className="w-4 h-4" />
+                              <span>{Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={handleVerifyOtp}
+                          disabled={otp.join('').length !== 6}
+                          className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                            otp.join('').length === 6
+                              ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg transform hover:scale-[1.02]'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          Verify OTP
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                        <Check className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-green-900">Email Verified!</p>
+                        <p className="text-sm text-green-700">
+                          {formData.collegeName} - Class of {formData.graduationYear}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pl-13 text-sm text-green-700">
+                      Branch: {formData.branch} ({formData.branchCode})
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+
+          case 2:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                    What's Your Name?
+                  </h2>
+                  <p className="text-gray-600">This is how others will see you</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors text-lg"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            );
+
+          case 3:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                    Select Your Gender
+                  </h2>
+                  <p className="text-gray-600">You can change this later</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {genderOptions.map((gender) => (
+                    <button
+                      key={gender}
+                      onClick={() => setFormData({ ...formData, gender })}
+                      className={`py-4 px-6 rounded-xl border-2 font-medium transition-all transform hover:scale-[1.02] ${
+                        formData.gender === gender
+                          ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white border-transparent shadow-lg'
+                          : 'bg-white border-gray-200 text-gray-700 hover:border-rose-300'
+                      }`}
+                    >
+                      {gender}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+
+          case 4:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                    Add Your Photos
+                  </h2>
+                  <p className="text-gray-600">Upload at least 2 photos (max 6)</p>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  {formData.profilePictures.map((img, index) => (
+                    <div key={index} className="relative aspect-square group">
+                      <img
+                        src={img}
+                        alt={`Profile ${index + 1}`}
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                      <button
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                      >
+                        <X className="w-5 h-5 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {formData.profilePictures.length < 6 && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-rose-500 hover:bg-rose-50 transition-colors"
+                    >
+                      <Camera className="w-8 h-8 text-gray-400" />
+                      <span className="text-sm text-gray-500 font-medium">Add Photo</span>
+                    </button>
+                  )}
+                </div>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                
+                {formData.profilePictures.length > 0 && formData.profilePictures.length < 2 && (
+                  <p className="text-center text-sm text-amber-600">
+                    Add {2 - formData.profilePictures.length} more {formData.profilePictures.length === 1 ? 'photo' : 'photos'} to continue
+                  </p>
+                )}
+              </div>
+            );
+
+          case 5:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                    Your Interests
+                  </h2>
+                  <p className="text-gray-600">Select at least 5 interests</p>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {predefinedInterests.map((interest) => (
+                    <button
+                      key={interest}
+                      onClick={() => toggleInterest(interest)}
+                      className={`px-4 py-2 rounded-full font-medium transition-all transform hover:scale-105 ${
+                        formData.interests.includes(interest)
+                          ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {interest}
+                    </button>
+                  ))}
+                  
+                  {formData.interests
+                    .filter(i => !predefinedInterests.includes(i))
+                    .map((interest) => (
+                      <button
+                        key={interest}
+                        onClick={() => toggleInterest(interest)}
+                        className="px-4 py-2 rounded-full font-medium bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md flex items-center gap-1"
+                      >
+                        {interest}
+                        <X className="w-4 h-4" />
+                      </button>
+                    ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Add custom interest"
+                    value={customInterest}
+                    onChange={(e) => setCustomInterest(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addCustomInterest()}
+                    className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors"
+                  />
+                  <button
+                    onClick={addCustomInterest}
+                    className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl hover:shadow-lg transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {formData.interests.length > 0 && formData.interests.length < 5 && (
+                  <p className="text-center text-sm text-amber-600">
+                    Select {5 - formData.interests.length} more {formData.interests.length === 4 ? 'interest' : 'interests'} to continue
+                  </p>
+                )}
+              </div>
+            );
+
+          case 6:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                    Tell Us About Yourself
+                  </h2>
+                  <p className="text-gray-600">Write a bio that stands out</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bio ({formData.bio.length}/500)
+                  </label>
+                  <textarea
+                    placeholder="Share what makes you unique, your passions, what you're looking for..."
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value.slice(0, 500) })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-colors resize-none"
+                    rows="6"
+                    autoFocus
+                  />
+                </div>
+              </div>
+            );
+
+          case 7:
+            return (
+              <div className="space-y-6 text-center">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 mb-4">
+                  <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                </div>
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+                  You're All Set! 🎉
+                </h2>
+                <p className="text-gray-600 text-lg">
+                  Welcome to the community, {formData.fullName}!
+                </p>
+                
+                <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl p-6 space-y-4 text-left">
+                  <h3 className="font-semibold text-gray-900">Profile Summary:</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium">Name:</span> {formData.fullName}</p>
+                    <p><span className="font-medium">Gender:</span> {formData.gender}</p>
+                    <p><span className="font-medium">College:</span> {formData.collegeName}</p>
+                    <p><span className="font-medium">Branch:</span> {formData.branch} ({formData.branchCode})</p>
+                    <p><span className="font-medium">Class of:</span> {formData.graduationYear}</p>
+                    <p><span className="font-medium">Photos:</span> {formData.profilePictures.length}</p>
+                    <p><span className="font-medium">Interests:</span> {formData.interests.join(', ')}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => alert('Registration complete! In a real app, this would save your data and redirect to the matching page.')}
+                  className="w-full py-4 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
+                >
+                  Start Matching
+                </button>
+              </div>
+            );
+
+          default:
+            return null;
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 py-8 px-4">
+          <div className="max-w-2xl mx-auto">
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">
+                  Step {step} of 7
+                </span>
+                <span className="text-sm font-medium text-rose-600">
+                  {Math.round((step / 7) * 100)}%
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-rose-500 to-pink-600 transition-all duration-500 ease-out"
+                  style={{ width: `${(step / 7) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-xl p-8 mb-6">
+              {renderStep()}
+            </div>
+
+            {step < 7 && step > 1 && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStep(step - 1)}
+                  className="px-6 py-3 bg-white border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:border-gray-300 transition-colors flex items-center gap-2"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Back
+                </button>
+                
+                <button
+                  onClick={() => setStep(step + 1)}
+                  disabled={!canProceed()}
+                  className={`flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                    canProceed()
+                      ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white hover:shadow-lg transform hover:scale-[1.02]'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  Continue
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<DatingAppRegistration />, document.getElementById('root'));
+  </script>
+</body>
+</html>
