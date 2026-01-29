@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Campus Connect</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    
+    .match-card {
+      transition: all 0.3s ease;
+    }
+    
+    .match-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(244, 63, 94, 0.2);
+    }
+    
+    .loading-spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #f43f5e;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-rose-50 via-pink-50 to-orange-50 min-h-screen">
+  
+  <!-- Navigation Bar -->
+  <nav class="bg-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- Logo -->
+        <div class="flex items-center">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </div>
+          <span class="ml-3 text-xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
+            Campus Connect
+          </span>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="hidden md:flex flex-1 max-w-lg mx-8">
+          <div class="relative w-full">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Search matches by name, branch, interests..."
+              onkeyup="searchMatches()"
+              class="w-full px-4 py-2 pl-10 pr-4 border-2 border-gray-200 rounded-xl focus:border-rose-500 focus:outline-none transition-all"
+            />
+            <svg class="absolute left-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="flex items-center gap-4">
+          <!-- Stats -->
+          <div class="hidden md:flex items-center gap-4 mr-4">
+            <div class="text-center">
+              <div class="text-sm font-semibold text-rose-600" id="totalMatches">0</div>
+              <div class="text-xs text-gray-500">Matches</div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm font-semibold text-pink-600" id="totalFriends">0</div>
+              <div class="text-xs text-gray-500">Friends</div>
+            </div>
+          </div>
+          
+          <!-- User Avatar -->
+          <div class="flex items-center gap-3">
+            <img id="navUserAvatar" class="w-10 h-10 rounded-full border-2 border-rose-300" src="" alt="Profile">
+            <div class="hidden md:block">
+              <div id="navUserName" class="font-semibold text-gray-700 text-sm"></div>
+            </div>
+          </div>
+          
+          <!-- Logout Button -->
+          <button
+            onclick="logout()"
+            class="px-4 py-2 bg-rose-50 text-rose-600 rounded-lg font-semibold hover:bg-rose-100 transition-colors flex items-center gap-2"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Loading State -->
+    <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+      <div class="loading-spinner"></div>
+      <p class="mt-4 text-gray-600 font-medium">Loading your profile...</p>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="mainDashboard" class="hidden">
+      
+      <!-- Welcome Section -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+        <div class="flex flex-col md:flex-row items-center justify-between">
+          <div class="flex items-center gap-6 mb-6 md:mb-0">
+            <img id="userProfilePic" class="w-24 h-24 rounded-full border-4 border-rose-300 shadow-lg" src="" alt="Profile">
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900">
+                Welcome back, <span id="userName" class="text-rose-600"></span>! 👋
+              </h1>
+              <p class="text-gray-600 mt-1">
+                <span id="userBranch"></span> • <span id="userYearDisplay"></span>
+              </p>
+              <div class="flex gap-2 mt-2">
+                <span class="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-sm font-semibold">
+                  <span id="userGender"></span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500">Total Matches</p>
+              <p id="statMatches" class="text-3xl font-bold text-rose-600 mt-1">0</p>
+            </div>
+            <div class="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center">
+              <svg class="w-8 h-8 text-rose-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500">Friends</p>
+              <p id="statFriends" class="text-3xl font-bold text-pink-600 mt-1">0</p>
+            </div>
+            <div class="w-14 h-14 bg-pink-100 rounded-full flex items-center justify-center">
+              <svg class="w-8 h-8 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500">Profile Views</p>
+              <p id="statViews" class="text-3xl font-bold text-purple-600 mt-1">0</p>
+            </div>
+            <div class="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
+              <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-500">Likes Received</p>
+              <p id="statLikes" class="text-3xl font-bold text-orange-600 mt-1">0</p>
+            </div>
+            <div class="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center">
+              <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Profile & Matches -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        
+        <!-- Profile Info Card -->
+        <div class="lg:col-span-1 bg-white rounded-2xl shadow-xl p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4">Profile Details</h2>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="text-sm font-medium text-gray-500">Email</label>
+              <p id="detailEmail" class="text-gray-900 font-semibold"></p>
+            </div>
+            
+            <div>
+              <label class="text-sm font-medium text-gray-500">Branch</label>
+              <p id="detailBranch" class="text-gray-900 font-semibold"></p>
+            </div>
+            
+            <div>
+              <label class="text-sm font-medium text-gray-500">Current Year</label>
+              <p id="detailYearDisplay" class="text-gray-900 font-semibold"></p>
+            </div>
+            
+            <div>
+              <label class="text-sm font-medium text-gray-500">Interests</label>
+              <div id="detailInterests" class="flex flex-wrap gap-2 mt-2"></div>
+            </div>
+            
+            <div>
+              <label class="text-sm font-medium text-gray-500">Bio</label>
+              <p id="detailBio" class="text-gray-700 text-sm mt-1"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Matches Section -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-xl p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-gray-900">Your Matches</h2>
+            
+            <!-- Filter Buttons -->
+            <div class="flex gap-2">
+              <button onclick="filterMatches('all')" class="filter-btn px-4 py-2 bg-rose-100 text-rose-700 rounded-lg text-sm font-semibold">All</button>
+              <button onclick="filterMatches('sameBranch')" class="filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold">Same Branch</button>
+            </div>
+          </div>
+
+          <!-- Matches Loading -->
+          <div id="matchesLoading" class="flex flex-col items-center justify-center py-12">
+            <div class="loading-spinner"></div>
+            <p class="mt-4 text-gray-600">Finding matches...</p>
+          </div>
+
+          <!-- No Matches -->
+          <div id="noMatches" class="hidden text-center py-12">
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">No matches yet</h3>
+            <p class="text-gray-500">Complete your profile to find matches!</p>
+          </div>
+
+          <!-- Matches Grid -->
+          <div id="matchesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBl4QWQXIhNtUQVHajwaCeL7a69FYeXIc",
+      authDomain: "datingapp-c9511.firebaseapp.com",
+      projectId: "datingapp-c9511",
+      storageBucket: "datingapp-c9511.firebasestorage.app",
+      messagingSenderId: "232861031726",
+      appId: "1:232861031726:web:6cfe58feda9c4563a12ebf"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let currentUserData = null;
+    let allMatches = [];
+    let filteredMatches = [];
+
+    // Calculate current year from email (e.g., 24bcs123@nith.ac.in -> 2nd Year)
+    function calculateCurrentYear(email) {
+      const match = email.match(/(\d{2})[a-zA-Z]+\d+@/);
+      if (!match) return 'Unknown Year';
+      
+      const enrollmentYear = parseInt('20' + match[1]);
+      const currentYear = new Date().getFullYear();
+      const yearsPassed = currentYear - enrollmentYear;
+      
+      if (yearsPassed < 0) return 'Future Student';
+      if (yearsPassed === 0) return '1st Year';
+      if (yearsPassed === 1) return '2nd Year';
+      if (yearsPassed === 2) return '3rd Year';
+      if (yearsPassed === 3) return '4th Year';
+      if (yearsPassed >= 4) return 'Alumni';
+      
+      return 'Unknown Year';
+    }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        await loadUserData();
+        await loadMatches();
+      } else {
+        window.location.href = 'login.html';
+      }
+    });
+
+    async function loadUserData() {
+      try {
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        
+        if (userDoc.exists) {
+          currentUserData = { id: userDoc.id, ...userDoc.data() };
+        } else {
+          currentUserData = {
+            id: currentUser.uid,
+            email: currentUser.email,
+            fullName: currentUser.displayName || currentUser.email.split('@')[0],
+            gender: 'Not specified',
+            branch: 'Not specified',
+            graduationYear: 2025,
+            collegeName: 'NIT Hamirpur',
+            interests: [],
+            bio: 'No bio yet',
+            profilePictures: [currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName || currentUser.email)}&background=f43f5e&color=fff`]
+          };
+          await db.collection('users').doc(currentUser.uid).set(currentUserData);
+        }
+        
+        displayUserData(currentUserData);
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('mainDashboard').classList.remove('hidden');
+        
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    function displayUserData(userData) {
+      const currentYearText = calculateCurrentYear(userData.email);
+      
+      document.getElementById('navUserName').textContent = userData.fullName || 'User';
+      document.getElementById('navUserAvatar').src = userData.profilePictures?.[0] || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.fullName)}&background=f43f5e&color=fff`;
+      document.getElementById('userName').textContent = userData.fullName || 'User';
+      document.getElementById('userBranch').textContent = userData.branch || 'Unknown';
+      document.getElementById('userYearDisplay').textContent = currentYearText;
+      document.getElementById('userGender').textContent = userData.gender || 'Not specified';
+      document.getElementById('userProfilePic').src = userData.profilePictures?.[0] || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.fullName)}&background=f43f5e&color=fff`;
+      
+      document.getElementById('detailEmail').textContent = userData.email;
+      document.getElementById('detailBranch').textContent = userData.branch || 'Unknown';
+      document.getElementById('detailYearDisplay').textContent = currentYearText;
+      document.getElementById('detailBio').textContent = userData.bio || 'No bio';
+      
+      const interestsDiv = document.getElementById('detailInterests');
+      interestsDiv.innerHTML = '';
+      if (userData.interests && userData.interests.length > 0) {
+        userData.interests.forEach(interest => {
+          const badge = document.createElement('span');
+          badge.className = 'px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-semibold';
+          badge.textContent = interest;
+          interestsDiv.appendChild(badge);
+        });
+      }
+    }
+
+    async function loadMatches() {
+      try {
+        const usersSnapshot = await db.collection('users')
+          .where('email', '!=', currentUser.email)
+          .limit(50)
+          .get();
+        
+        allMatches = [];
+        usersSnapshot.forEach(doc => {
+          allMatches.push({ id: doc.id, ...doc.data() });
+        });
+        
+        document.getElementById('statMatches').textContent = allMatches.length;
+        document.getElementById('totalMatches').textContent = allMatches.length;
+        document.getElementById('statFriends').textContent = Math.floor(allMatches.length * 0.3);
+        document.getElementById('totalFriends').textContent = Math.floor(allMatches.length * 0.3);
+        document.getElementById('statViews').textContent = Math.floor(Math.random() * 100) + 50;
+        document.getElementById('statLikes').textContent = Math.floor(Math.random() * 50) + 20;
+        
+        filteredMatches = [...allMatches];
+        displayMatches(filteredMatches);
+        
+        document.getElementById('matchesLoading').classList.add('hidden');
+        
+        if (allMatches.length === 0) {
+          document.getElementById('noMatches').classList.remove('hidden');
+        }
+        
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('matchesLoading').classList.add('hidden');
+        document.getElementById('noMatches').classList.remove('hidden');
+      }
+    }
+
+    function displayMatches(matches) {
+      const grid = document.getElementById('matchesGrid');
+      grid.innerHTML = '';
+      
+      if (matches.length === 0) {
+        document.getElementById('noMatches').classList.remove('hidden');
+        return;
+      }
+      
+      document.getElementById('noMatches').classList.add('hidden');
+      
+      matches.forEach(match => {
+        const card = createMatchCard(match);
+        grid.appendChild(card);
+      });
+    }
+
+    function createMatchCard(match) {
+      const div = document.createElement('div');
+      div.className = 'match-card bg-white rounded-xl shadow-lg overflow-hidden';
+      
+      const photoUrl = match.profilePictures?.[0] || `https://ui-avatars.com/api/?name=${encodeURIComponent(match.fullName || match.email)}&background=random&size=400`;
+      const matchYearText = calculateCurrentYear(match.email);
+      
+      div.innerHTML = `
+        <div class="relative">
+          <img src="${photoUrl}" alt="${match.fullName}" class="w-full h-48 object-cover">
+        </div>
+        <div class="p-4">
+          <h3 class="text-lg font-bold text-gray-900 mb-1">${match.fullName || 'Unknown'}</h3>
+          <p class="text-sm text-gray-600 mb-2">${match.branch || 'Unknown'} • ${matchYearText}</p>
+          
+          ${match.interests && match.interests.length > 0 ? `
+            <div class="flex flex-wrap gap-1 mb-3">
+              ${match.interests.slice(0, 3).map(interest => `
+                <span class="px-2 py-1 bg-rose-50 text-rose-600 rounded-full text-xs">${interest}</span>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <p class="text-sm text-gray-600 mb-3">${(match.bio || 'No bio').substring(0, 80)}...</p>
+          
+          <button onclick="likeMatch('${match.id}')" class="w-full py-2 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+            ❤️ Like
+          </button>
+        </div>
+      `;
+      
+      return div;
+    }
+
+    function searchMatches() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      
+      if (!query) {
+        filteredMatches = [...allMatches];
+      } else {
+        filteredMatches = allMatches.filter(match => {
+          return (
+            (match.fullName || '').toLowerCase().includes(query) ||
+            (match.branch || '').toLowerCase().includes(query) ||
+            (match.interests || []).some(interest => interest.toLowerCase().includes(query))
+          );
+        });
+      }
+      
+      displayMatches(filteredMatches);
+    }
+
+    function filterMatches(type) {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('bg-rose-100', 'text-rose-700');
+        btn.classList.add('bg-gray-100', 'text-gray-700');
+      });
+      event.target.classList.remove('bg-gray-100', 'text-gray-700');
+      event.target.classList.add('bg-rose-100', 'text-rose-700');
+      
+      switch(type) {
+        case 'all':
+          filteredMatches = [...allMatches];
+          break;
+        case 'sameBranch':
+          filteredMatches = allMatches.filter(match => match.branch === currentUserData.branch);
+          break;
+      }
+      
+      displayMatches(filteredMatches);
+    }
+
+    async function likeMatch(matchId) {
+      try {
+        await db.collection('likes').add({
+          from: currentUser.uid,
+          to: matchId,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('❤️ Like sent!');
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    async function logout() {
+      try {
+        await auth.signOut();
+        window.location.href = 'login.html';
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+  </script>
+</body>
+</html>

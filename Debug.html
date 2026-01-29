@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug - Firebase Data Check</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #fef3f3 0%, #fff0f5 50%, #fff5f0 100%);
+      min-height: 100vh;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-4xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-6">🔍 Firebase Debug Tool</h1>
+      
+      <div class="space-y-6">
+        <!-- Auth Status -->
+        <div class="p-4 bg-blue-50 rounded-lg">
+          <h2 class="text-xl font-bold text-blue-900 mb-3">Authentication Status</h2>
+          <div id="authStatus" class="text-sm space-y-1"></div>
+        </div>
+
+        <!-- Firestore Status -->
+        <div class="p-4 bg-green-50 rounded-lg">
+          <h2 class="text-xl font-bold text-green-900 mb-3">Firestore User Data</h2>
+          <div id="firestoreStatus" class="text-sm space-y-1"></div>
+        </div>
+
+        <!-- All Users -->
+        <div class="p-4 bg-purple-50 rounded-lg">
+          <h2 class="text-xl font-bold text-purple-900 mb-3">All Users in Database</h2>
+          <button onclick="loadAllUsers()" class="mb-3 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            Load All Users
+          </button>
+          <div id="allUsers" class="text-sm space-y-2"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3">
+          <button onclick="window.location.reload()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+            Refresh
+          </button>
+          <button onclick="window.location.href='dashboard.html'" class="px-6 py-3 bg-rose-600 text-white rounded-lg hover:bg-rose-700">
+            Go to Dashboard
+          </button>
+          <button onclick="firebase.auth().signOut().then(() => window.location.href='login.html')" class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBl4QWQXIhNtUQVHajwaCeL7a69FYeXIc",
+      authDomain: "datingapp-c9511.firebaseapp.com",
+      projectId: "datingapp-c9511",
+      storageBucket: "datingapp-c9511.firebasestorage.app",
+      messagingSenderId: "232861031726",
+      appId: "1:232861031726:web:6cfe58feda9c4563a12ebf",
+      measurementId: "G-K9Z221KQB2"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function displayJSON(obj) {
+      return '<pre class="bg-gray-100 p-2 rounded overflow-auto">' + JSON.stringify(obj, null, 2) + '</pre>';
+    }
+
+    auth.onAuthStateChanged(async (user) => {
+      const authDiv = document.getElementById('authStatus');
+      const firestoreDiv = document.getElementById('firestoreStatus');
+
+      if (user) {
+        authDiv.innerHTML = `
+          <div class="text-green-700 font-bold">✓ User Authenticated</div>
+          <div><strong>UID:</strong> ${user.uid}</div>
+          <div><strong>Email:</strong> ${user.email}</div>
+          <div><strong>Display Name:</strong> ${user.displayName || 'Not set'}</div>
+          <div><strong>Email Verified:</strong> ${user.emailVerified ? 'Yes' : 'No'}</div>
+          <div><strong>Created:</strong> ${user.metadata.creationTime}</div>
+          <div><strong>Last Sign In:</strong> ${user.metadata.lastSignInTime}</div>
+        `;
+
+        // Check Firestore
+        try {
+          firestoreDiv.innerHTML = '<div class="text-blue-600">Loading...</div>';
+          
+          // Try by UID
+          const userDoc = await db.collection('users').doc(user.uid).get();
+          
+          if (userDoc.exists) {
+            firestoreDiv.innerHTML = `
+              <div class="text-green-700 font-bold">✓ User Document Found (by UID)</div>
+              ${displayJSON(userDoc.data())}
+            `;
+          } else {
+            // Try by email
+            const snapshot = await db.collection('users')
+              .where('collegeEmail', '==', user.email)
+              .limit(1)
+              .get();
+            
+            if (!snapshot.empty) {
+              firestoreDiv.innerHTML = `
+                <div class="text-yellow-700 font-bold">⚠ User Document Found (by email, not UID)</div>
+                <div class="text-sm text-yellow-600 mb-2">This might cause issues. Document ID: ${snapshot.docs[0].id}</div>
+                ${displayJSON(snapshot.docs[0].data())}
+              `;
+            } else {
+              firestoreDiv.innerHTML = `
+                <div class="text-red-700 font-bold">✗ No User Document Found</div>
+                <div class="text-sm text-red-600">No document found with UID: ${user.uid}</div>
+                <div class="text-sm text-red-600">No document found with email: ${user.email}</div>
+              `;
+            }
+          }
+        } catch (error) {
+          firestoreDiv.innerHTML = `
+            <div class="text-red-700 font-bold">✗ Error Loading Firestore Data</div>
+            <div class="text-sm text-red-600">${error.message}</div>
+          `;
+        }
+      } else {
+        authDiv.innerHTML = '<div class="text-red-700 font-bold">✗ No user logged in</div>';
+        firestoreDiv.innerHTML = '<div class="text-gray-500">Login to check Firestore data</div>';
+        
+        setTimeout(() => {
+          window.location.href = 'login.html';
+        }, 2000);
+      }
+    });
+
+    async function loadAllUsers() {
+      const allUsersDiv = document.getElementById('allUsers');
+      allUsersDiv.innerHTML = '<div class="text-blue-600">Loading all users...</div>';
+      
+      try {
+        const snapshot = await db.collection('users').limit(20).get();
+        
+        if (snapshot.empty) {
+          allUsersDiv.innerHTML = '<div class="text-gray-500">No users found in database</div>';
+        } else {
+          let html = `<div class="text-green-700 font-bold mb-2">Found ${snapshot.size} users:</div>`;
+          
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            html += `
+              <div class="p-3 bg-white rounded border mb-2">
+                <div><strong>Doc ID:</strong> ${doc.id}</div>
+                <div><strong>Name:</strong> ${data.fullName}</div>
+                <div><strong>Email:</strong> ${data.collegeEmail}</div>
+                <div><strong>UID in data:</strong> ${data.uid || 'Not set'}</div>
+              </div>
+            `;
+          });
+          
+          allUsersDiv.innerHTML = html;
+        }
+      } catch (error) {
+        allUsersDiv.innerHTML = `
+          <div class="text-red-700 font-bold">✗ Error Loading Users</div>
+          <div class="text-sm text-red-600">${error.message}</div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

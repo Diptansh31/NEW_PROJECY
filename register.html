@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dating App Registration</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  
+  <!-- React and other libraries -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Valentine's Theme Styles */
+    body {
+      background: #4a0e0e;
+      background-image: radial-gradient(circle at center, #8b1e1e 0%, #310808 100%);
+      overflow-x: hidden;
+    }
+
+    /* Background blur effect */
+    .background-overlay {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      background: url('https://images.unsplash.com/photo-1518199266791-739d6ff26df5?q=80&w=2070&auto=format&fit=crop') center/cover;
+      filter: blur(20px) brightness(0.4);
+      z-index: 0;
+    }
+
+    #root {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Glass card effect */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    /* Brand colors */
+    .brand-gold {
+      color: #f3d19e;
+    }
+
+    /* Custom gradient for buttons */
+    .btn-valentine {
+      background: linear-gradient(90deg, #8b1e1e, #d64545);
+      box-shadow: 0 4px 15px rgba(139, 30, 30, 0.4);
+    }
+
+    .btn-valentine:hover {
+      box-shadow: 0 6px 20px rgba(139, 30, 30, 0.6);
+    }
+
+    /* Progress bar custom styling */
+    .progress-bar-valentine {
+      background: linear-gradient(90deg, #8b1e1e, #d64545);
+    }
+  </style>
+</head>
+<body>
+  <div class="background-overlay"></div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    // ============================================
+    // FIREBASE CONFIGURATION
+    // ============================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBl4QWQXIhNtUQVHajwaCeL7a69FYeXIc",
+      authDomain: "datingapp-c9511.firebaseapp.com",
+      projectId: "datingapp-c9511",
+      storageBucket: "datingapp-c9511.firebasestorage.app",
+      messagingSenderId: "232861031726",
+      appId: "1:232861031726:web:6cfe58feda9c4563a12ebf",
+      measurementId: "G-K9Z221KQB2"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Check if user is already logged in
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        window.location.href = 'dashboard.html';
+      }
+    });
+
+    // ============================================
+    // EMAILJS CONFIGURATION
+    // ============================================
+    const EMAILJS_PUBLIC_KEY = "vMHaw0fLsCU1hg1NL";
+    const EMAILJS_SERVICE_ID = "service_5o78aj6";
+    const EMAILJS_TEMPLATE_ID = "template_6lrb5te";
+
+    // Initialize EmailJS
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    // ============================================
+    // ICONS COMPONENTS
+    // ============================================
+    const Heart = ({ className, fill }) => (
+      <svg className={className} fill={fill || "none"} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    );
+
+    const Mail = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    );
+
+    const Lock = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    );
+
+    const Eye = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      </svg>
+    );
+
+    const EyeOff = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+      </svg>
+    );
+
+    const AlertTriangle = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    );
+
+    const Camera = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+
+    const Plus = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+      </svg>
+    );
+
+    const X = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+
+    const Check = ({ className, strokeWidth }) => (
+      <svg className={className} fill="none" stroke="currentColor" strokeWidth={strokeWidth || 2} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    );
+
+    const ChevronRight = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    );
+
+    const ChevronLeft = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      </svg>
+    );
+
+    const Clock = ({ className }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+
+    const Loader = ({ className }) => (
+      <svg className={`${className} animate-spin`} fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    );
+
+    // ============================================
+    // MAIN COMPONENT
+    // ============================================
+    function DatingAppRegistration() {
+      const [step, setStep] = useState(1);
+      const [formData, setFormData] = useState({
+        collegeEmail: '',
+        password: '',
+        confirmPassword: '',
+        isVerified: false,
+        graduationYear: null,
+        collegeName: '',
+        branch: '',
+        branchCode: '',
+        fullName: '',
+        gender: '',
+        profilePictures: [],
+        interests: [],
+        bio: ''
+      });
+      const [showPassword, setShowPassword] = useState(false);
+      const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+      const [otpSent, setOtpSent] = useState(false);
+      const [otp, setOtp] = useState(['', '', '', '', '', '']);
+      const [generatedOtp, setGeneratedOtp] = useState('');
+      const [timer, setTimer] = useState(0);
+      const [customInterest, setCustomInterest] = useState('');
+      const [errors, setErrors] = useState({});
+      const [loading, setLoading] = useState(false);
+      const fileInputRef = useRef(null);
+      const otpInputs = useRef([]);
+
+      // Branch codes mapping
+      const VALID_BRANCHES = {
+        'bt': 'Bio Technology',
+        'ch': 'Chemical Engineering',
+        'ce': 'Civil Engineering',
+        'cs': 'Computer Science and Engineering',
+        'cse': 'Computer Science and Engineering',
+        'ec': 'Electronics and Communication Engineering',
+        'ece': 'Electronics and Communication Engineering',
+        'ee': 'Electrical Engineering',
+        'ice': 'Instrumentation and Control Engineering',
+        'ip': 'Industrial and Production Engineering',
+        'it': 'Information Technology',
+        'me': 'Mechanical Engineering',
+        'tt': 'Textile Technology'
+      };
+
+      const predefinedInterests = [
+        'Music', 'Travel', 'Fitness', 'Photography', 'Cooking',
+        'Reading', 'Movies', 'Gaming', 'Art', 'Dancing',
+        'Sports', 'Yoga', 'Hiking', 'Coffee', 'Fashion',
+        'Tech', 'Writing', 'Volunteering', 'Foodie', 'Nature'
+      ];
+
+      const genderOptions = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+
+      // Timer countdown
+      useEffect(() => {
+        if (timer > 0) {
+          const interval = setInterval(() => {
+            setTimer(prev => prev - 1);
+          }, 1000);
+          return () => clearInterval(interval);
+        }
+      }, [timer]);
+
+      // ============================================
+      // EMAIL PARSING AND VALIDATION
+      // ============================================
+      const parseCollegeEmail = (email) => {
+        const emailRegex = /^([a-zA-Z]+)([a-zA-Z]?)\.([a-zA-Z]+)\.(\d{2})@([a-zA-Z]+)\.(ac\.in|edu)$/;
+        const match = email.match(emailRegex);
+        
+        if (match) {
+          const [, firstName, lastInitial, branchCode, yearShort, college] = match;
+          const year = 2000 + parseInt(yearShort);
+          const branchCodeLower = branchCode.toLowerCase();
+          
+          if (!VALID_BRANCHES[branchCodeLower]) {
+            return {
+              valid: false,
+              outOfCampus: true,
+              branchCode: branchCode.toUpperCase()
+            };
+          }
+          
+          return {
+            valid: true,
+            outOfCampus: false,
+            firstName,
+            lastInitial,
+            branchCode: branchCode.toUpperCase(),
+            branch: VALID_BRANCHES[branchCodeLower],
+            year,
+            college: college.toUpperCase()
+          };
+        }
+        
+        return { valid: false };
+      };
+
+      // ============================================
+      // PASSWORD VALIDATION
+      // ============================================
+      const validatePassword = (password) => {
+        if (password.length < 8) {
+          return 'Password must be at least 8 characters long';
+        }
+        if (!/[A-Z]/.test(password)) {
+          return 'Password must contain at least one uppercase letter';
+        }
+        if (!/[a-z]/.test(password)) {
+          return 'Password must contain at least one lowercase letter';
+        }
+        if (!/[0-9]/.test(password)) {
+          return 'Password must contain at least one number';
+        }
+        return null;
+      };
+
+      // ============================================
+      // OTP GENERATION AND SENDING
+      // ============================================
+      const generateOTP = () => {
+        return Math.floor(100000 + Math.random() * 900000).toString();
+      };
+
+      const sendOTP = async () => {
+        setLoading(true);
+        setErrors({});
+        
+        const emailData = parseCollegeEmail(formData.collegeEmail);
+        
+        if (!emailData.valid) {
+          if (emailData.outOfCampus) {
+            setErrors({ email: `Invalid branch code: ${emailData.branchCode}. This appears to be an out-of-campus email.` });
+          } else {
+            setErrors({ email: 'Please enter a valid college email in format: name.initial.branch.year@college.ac.in' });
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Validate password
+        const passwordError = validatePassword(formData.password);
+        if (passwordError) {
+          setErrors({ password: passwordError });
+          setLoading(false);
+          return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+          setErrors({ confirmPassword: 'Passwords do not match' });
+          setLoading(false);
+          return;
+        }
+
+        try {
+          // Check if email already exists in Firestore
+          const emailCheck = await db.collection('users')
+            .where('collegeEmail', '==', formData.collegeEmail)
+            .get();
+          
+          if (!emailCheck.empty) {
+            setErrors({ email: 'This email is already registered!' });
+            setLoading(false);
+            return;
+          }
+
+          // Generate OTP
+          const newOtp = generateOTP();
+          setGeneratedOtp(newOtp);
+          
+          // Send OTP via EmailJS
+          const templateParams = {
+            to_email: formData.collegeEmail,
+            otp_code: newOtp,
+            user_name: emailData.firstName
+          };
+
+          await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams
+          );
+
+          // Update form data
+          setFormData({
+            ...formData,
+            graduationYear: emailData.year,
+            collegeName: emailData.college,
+            branch: emailData.branch,
+            branchCode: emailData.branchCode
+          });
+
+          setOtpSent(true);
+          setTimer(120);
+          setErrors({});
+          
+        } catch (error) {
+          console.error('Error sending OTP:', error);
+          setErrors({ email: 'Failed to send OTP. Please check your email and try again.' });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const verifyOTP = async () => {
+        const enteredOtp = otp.join('');
+        
+        if (enteredOtp === generatedOtp) {
+          setFormData({ ...formData, isVerified: true });
+          setErrors({});
+          setStep(2);
+        } else {
+          setErrors({ otp: 'Invalid OTP. Please try again.' });
+          setOtp(['', '', '', '', '', '']);
+          if (otpInputs.current[0]) {
+            otpInputs.current[0].focus();
+          }
+        }
+      };
+
+      const resendOTP = async () => {
+        if (timer > 0) return;
+        
+        setLoading(true);
+        const newOtp = generateOTP();
+        setGeneratedOtp(newOtp);
+        
+        try {
+          const emailData = parseCollegeEmail(formData.collegeEmail);
+          const templateParams = {
+            to_email: formData.collegeEmail,
+            otp_code: newOtp,
+            user_name: emailData.firstName
+          };
+
+          await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams
+          );
+
+          setTimer(120);
+          setOtp(['', '', '', '', '', '']);
+          setErrors({});
+          if (otpInputs.current[0]) {
+            otpInputs.current[0].focus();
+          }
+        } catch (error) {
+          console.error('Error resending OTP:', error);
+          setErrors({ otp: 'Failed to resend OTP. Please try again.' });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // ============================================
+      // OTP INPUT HANDLING
+      // ============================================
+      const handleOtpChange = (index, value) => {
+        if (!/^\d*$/.test(value)) return;
+        
+        const newOtp = [...otp];
+        newOtp[index] = value;
+        setOtp(newOtp);
+
+        if (value && index < 5) {
+          otpInputs.current[index + 1]?.focus();
+        }
+      };
+
+      const handleOtpKeyDown = (index, e) => {
+        if (e.key === 'Backspace' && !otp[index] && index > 0) {
+          otpInputs.current[index - 1]?.focus();
+        }
+      };
+
+      const handleOtpPaste = (e) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 6);
+        if (!/^\d+$/.test(pastedData)) return;
+
+        const newOtp = pastedData.split('');
+        while (newOtp.length < 6) newOtp.push('');
+        setOtp(newOtp);
+
+        const nextEmptyIndex = newOtp.findIndex(val => !val);
+        if (nextEmptyIndex !== -1) {
+          otpInputs.current[nextEmptyIndex]?.focus();
+        } else {
+          otpInputs.current[5]?.focus();
+        }
+      };
+
+      // ============================================
+      // IMAGE HANDLING
+      // ============================================
+      const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        
+        files.forEach(file => {
+          if (formData.profilePictures.length >= 6) return;
+          
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setFormData(prev => ({
+              ...prev,
+              profilePictures: [...prev.profilePictures, reader.result]
+            }));
+          };
+          reader.readAsDataURL(file);
+        });
+      };
+
+      const removeImage = (index) => {
+        setFormData({
+          ...formData,
+          profilePictures: formData.profilePictures.filter((_, i) => i !== index)
+        });
+      };
+
+      // ============================================
+      // INTERESTS HANDLING
+      // ============================================
+      const toggleInterest = (interest) => {
+        if (formData.interests.includes(interest)) {
+          setFormData({
+            ...formData,
+            interests: formData.interests.filter(i => i !== interest)
+          });
+        } else if (formData.interests.length < 10) {
+          setFormData({
+            ...formData,
+            interests: [...formData.interests, interest]
+          });
+        }
+      };
+
+      const addCustomInterest = () => {
+        const trimmed = customInterest.trim();
+        if (trimmed && !formData.interests.includes(trimmed) && formData.interests.length < 10) {
+          setFormData({
+            ...formData,
+            interests: [...formData.interests, trimmed]
+          });
+          setCustomInterest('');
+        }
+      };
+
+      // ============================================
+      // FORM VALIDATION
+      // ============================================
+      const canProceed = () => {
+        switch (step) {
+          case 1:
+            return formData.isVerified;
+          case 2:
+            return formData.fullName.trim().length >= 2;
+          case 3:
+            return formData.gender !== '';
+          case 4:
+            return formData.profilePictures.length >= 2;
+          case 5:
+            return formData.interests.length >= 5;
+          case 6:
+            return formData.bio.trim().length >= 50;
+          default:
+            return true;
+        }
+      };
+
+      // ============================================
+      // FINAL REGISTRATION
+      // ============================================
+      const handleFinalRegistration = async () => {
+        setLoading(true);
+        
+        try {
+          // Create Firebase Authentication account
+          const userCredential = await auth.createUserWithEmailAndPassword(
+            formData.collegeEmail,
+            formData.password
+          );
+
+          console.log('User created with UID:', userCredential.user.uid);
+
+          // Update user profile
+          await userCredential.user.updateProfile({
+            displayName: formData.fullName
+          });
+
+          // Save user data to Firestore
+          const userData = {
+            uid: userCredential.user.uid,
+            collegeEmail: formData.collegeEmail,
+            fullName: formData.fullName,
+            gender: formData.gender,
+            collegeName: formData.collegeName,
+            branch: formData.branch,
+            branchCode: formData.branchCode,
+            graduationYear: formData.graduationYear,
+            interests: formData.interests,
+            bio: formData.bio,
+            profilePicturesCount: formData.profilePictures.length,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+
+          // Save to Firestore with UID as document ID
+          await db.collection('users').doc(userCredential.user.uid).set(userData);
+          
+          console.log('User data saved to Firestore');
+          
+          // Wait a moment to ensure Firestore write completes
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          setStep(7);
+        } catch (error) {
+          console.error('Error during registration:', error);
+          if (error.code === 'auth/email-already-in-use') {
+            setErrors({ general: 'This email is already registered. Please login instead.' });
+          } else {
+            setErrors({ general: 'Failed to complete registration. Please try again.' });
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // ============================================
+      // RENDER STEPS
+      // ============================================
+      const renderStep = () => {
+        switch (step) {
+          case 1:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 mb-4">
+                    <Heart className="w-8 h-8 text-white" fill="white" />
+                  </div>
+                  <h2 className="text-3xl font-bold brand-gold">
+                    Welcome to Campus Connect
+                  </h2>
+                  <p className="text-white text-opacity-90">Create your account to get started</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    College Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="email"
+                      placeholder="name.initial.branch.year@college.ac.in"
+                      value={formData.collegeEmail}
+                      onChange={(e) => setFormData({ ...formData, collegeEmail: e.target.value.toLowerCase() })}
+                      disabled={otpSent}
+                      className="w-full pl-10 pr-4 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all disabled:bg-opacity-50"
+                    />
+                  </div>
+                  {errors.email && (
+                    <div className="mt-2 flex items-start gap-2 text-red-300 text-sm bg-red-900 bg-opacity-30 p-3 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{errors.email}</span>
+                    </div>
+                  )}
+                </div>
+
+                {!otpSent && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Create Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter password (min 8 characters)"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          className="w-full pl-10 pr-12 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {errors.password && (
+                        <div className="mt-2 flex items-start gap-2 text-red-300 text-sm bg-red-900 bg-opacity-30 p-3 rounded-lg">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>{errors.password}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Confirm Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Re-enter password"
+                          value={formData.confirmPassword}
+                          onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                          className="w-full pl-10 pr-12 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {errors.confirmPassword && (
+                        <div className="mt-2 flex items-start gap-2 text-red-300 text-sm bg-red-900 bg-opacity-30 p-3 rounded-lg">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>{errors.confirmPassword}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={sendOTP}
+                      disabled={loading || !formData.collegeEmail || !formData.password || !formData.confirmPassword}
+                      className="w-full py-3 btn-valentine text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader className="w-5 h-5" />
+                          Sending OTP...
+                        </>
+                      ) : (
+                        'Send OTP'
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {otpSent && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Enter 6-digit OTP
+                      </label>
+                      <div className="flex gap-2 justify-center">
+                        {otp.map((digit, index) => (
+                          <input
+                            key={index}
+                            ref={el => otpInputs.current[index] = el}
+                            type="text"
+                            maxLength="1"
+                            value={digit}
+                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                            onPaste={handleOtpPaste}
+                            className="w-12 h-12 text-center text-xl font-bold border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:outline-none transition-colors"
+                          />
+                        ))}
+                      </div>
+                      {errors.otp && (
+                        <div className="mt-2 flex items-center gap-2 text-red-300 text-sm justify-center bg-red-900 bg-opacity-30 p-3 rounded-lg">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>{errors.otp}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-white">
+                        <Clock className="w-4 h-4" />
+                        <span>
+                          {timer > 0 ? `${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, '0')}` : 'OTP Expired'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={resendOTP}
+                        disabled={timer > 0 || loading}
+                        className="brand-gold font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Sending...' : 'Resend OTP'}
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={verifyOTP}
+                      disabled={otp.some(d => !d)}
+                      className="w-full py-3 btn-valentine text-white rounded-xl font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Verify OTP
+                    </button>
+                  </div>
+                )}
+
+                <div className="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 backdrop-blur-sm">
+                  <p className="text-sm text-white">
+                    <strong>Email Format:</strong> name.initial.branch.year@college.ac.in
+                    <br />
+                    <strong>Example:</strong> john.d.cs.23@xyz.ac.in
+                    <br />
+                    <strong>Password:</strong> Min 8 chars with uppercase, lowercase & number
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-sm text-white">
+                    Already have an account?{' '}
+                    <a href="login.html" className="brand-gold font-semibold hover:underline">
+                      Login here
+                    </a>
+                  </p>
+                </div>
+              </div>
+            );
+
+          case 2:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold brand-gold">
+                    What's Your Name?
+                  </h2>
+                  <p className="text-white text-opacity-90">This is how you'll appear to others</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 space-y-2 backdrop-blur-sm">
+                  <p className="text-sm font-medium text-white">Your Profile Info:</p>
+                  <div className="text-sm text-white text-opacity-90 space-y-1">
+                    <p>📧 {formData.collegeEmail}</p>
+                    <p>🎓 {formData.collegeName}</p>
+                    <p>📚 {formData.branch} ({formData.branchCode})</p>
+                    <p>📅 Class of {formData.graduationYear}</p>
+                  </div>
+                </div>
+              </div>
+            );
+
+          case 3:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold brand-gold">
+                    Select Your Gender
+                  </h2>
+                  <p className="text-white text-opacity-90">Help us personalize your experience</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {genderOptions.map((gender) => (
+                    <button
+                      key={gender}
+                      onClick={() => setFormData({ ...formData, gender })}
+                      className={`p-6 rounded-2xl border-2 transition-all transform hover:scale-105 ${
+                        formData.gender === gender
+                          ? 'border-white border-opacity-50 bg-white bg-opacity-20 shadow-md backdrop-blur-sm'
+                          : 'border-white border-opacity-20 bg-white bg-opacity-5 hover:bg-opacity-10 backdrop-blur-sm'
+                      }`}
+                    >
+                      <span className="text-lg font-semibold text-white">{gender}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+
+          case 4:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold brand-gold">
+                    Add Your Photos
+                  </h2>
+                  <p className="text-white text-opacity-90">Add at least 2 photos (max 6)</p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  {formData.profilePictures.map((pic, index) => (
+                    <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group border-2 border-white border-opacity-20">
+                      <img
+                        src={pic}
+                        alt={`Profile ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {formData.profilePictures.length < 6 && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square border-2 border-dashed border-white border-opacity-30 rounded-2xl bg-white bg-opacity-5 hover:bg-opacity-10 hover:border-opacity-50 transition-all flex flex-col items-center justify-center gap-2 group backdrop-blur-sm"
+                    >
+                      <Camera className="w-8 h-8 text-white text-opacity-60 group-hover:text-opacity-100 transition-all" />
+                      <span className="text-sm text-white text-opacity-60 group-hover:text-opacity-100 transition-all">
+                        Add Photo
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+            );
+
+          case 5:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold brand-gold">
+                    Your Interests
+                  </h2>
+                  <p className="text-white text-opacity-90">Select at least 5 (max 10)</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {predefinedInterests.map((interest) => (
+                    <button
+                      key={interest}
+                      onClick={() => toggleInterest(interest)}
+                      className={`px-4 py-2 rounded-full font-medium transition-all transform hover:scale-105 ${
+                        formData.interests.includes(interest)
+                          ? 'btn-valentine text-white shadow-md'
+                          : 'bg-white bg-opacity-15 text-white hover:bg-opacity-25 backdrop-blur-sm'
+                      }`}
+                    >
+                      {interest}
+                    </button>
+                  ))}
+                  
+                  {formData.interests
+                    .filter(i => !predefinedInterests.includes(i))
+                    .map((interest) => (
+                      <button
+                        key={interest}
+                        onClick={() => toggleInterest(interest)}
+                        className="px-4 py-2 rounded-full font-medium btn-valentine text-white shadow-md flex items-center gap-1"
+                      >
+                        {interest}
+                        <X className="w-4 h-4" />
+                      </button>
+                    ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Add custom interest"
+                    value={customInterest}
+                    onChange={(e) => setCustomInterest(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addCustomInterest()}
+                    className="flex-1 px-4 py-2 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all"
+                  />
+                  <button
+                    onClick={addCustomInterest}
+                    className="px-4 py-2 btn-valentine text-white rounded-xl hover:shadow-lg transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {formData.interests.length > 0 && formData.interests.length < 5 && (
+                  <p className="text-center text-sm text-yellow-300">
+                    Select {5 - formData.interests.length} more {formData.interests.length === 4 ? 'interest' : 'interests'} to continue
+                  </p>
+                )}
+              </div>
+            );
+
+          case 6:
+            return (
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold brand-gold">
+                    Tell Us About Yourself
+                  </h2>
+                  <p className="text-white text-opacity-90">Write a bio that stands out (min 50 characters)</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Bio ({formData.bio.length}/500)
+                  </label>
+                  <textarea
+                    placeholder="Share what makes you unique, your passions, what you're looking for..."
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value.slice(0, 500) })}
+                    className="w-full px-4 py-3 border-2 border-white border-opacity-30 rounded-xl bg-white bg-opacity-90 focus:border-opacity-50 focus:bg-opacity-100 focus:outline-none transition-all resize-none"
+                    rows="6"
+                    autoFocus
+                  />
+                  {formData.bio.length < 50 && (
+                    <p className="text-sm text-yellow-300 mt-2">
+                      {50 - formData.bio.length} more characters needed
+                    </p>
+                  )}
+                </div>
+
+                {errors.general && (
+                  <div className="flex items-start gap-2 text-red-300 text-sm bg-red-900 bg-opacity-30 p-3 rounded-lg">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{errors.general}</span>
+                  </div>
+                )}
+              </div>
+            );
+
+          case 7:
+            return (
+              <div className="space-y-6 text-center">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-rose-400 to-pink-600 mb-4">
+                  <Check className="w-10 h-10 text-white" strokeWidth={3} />
+                </div>
+                <h2 className="text-3xl font-bold brand-gold">
+                  You're All Set! 🎉
+                </h2>
+                <p className="text-white text-lg">
+                  Welcome to the community, {formData.fullName}!
+                </p>
+                
+                <div className="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-2xl p-6 space-y-4 text-left backdrop-blur-sm">
+                  <h3 className="font-semibold text-white">Profile Summary:</h3>
+                  <div className="space-y-2 text-sm text-white text-opacity-90">
+                    <p><span className="font-medium">Name:</span> {formData.fullName}</p>
+                    <p><span className="font-medium">Email:</span> {formData.collegeEmail}</p>
+                    <p><span className="font-medium">Gender:</span> {formData.gender}</p>
+                    <p><span className="font-medium">College:</span> {formData.collegeName}</p>
+                    <p><span className="font-medium">Branch:</span> {formData.branch} ({formData.branchCode})</p>
+                    <p><span className="font-medium">Class of:</span> {formData.graduationYear}</p>
+                    <p><span className="font-medium">Photos:</span> {formData.profilePictures.length}</p>
+                    <p><span className="font-medium">Interests:</span> {formData.interests.join(', ')}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => window.location.href = 'dashboard.html'}
+                  className="w-full py-4 btn-valentine text-white rounded-xl font-semibold text-lg hover:shadow-xl transform hover:scale-[1.02] transition-all"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            );
+
+          default:
+            return null;
+        }
+      };
+
+      return (
+        <div className="min-h-screen py-8 px-4 flex items-center justify-center">
+          <div className="max-w-2xl w-full mx-auto">
+            {/* Brand Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl md:text-5xl font-bold brand-gold mb-2" style={{ letterSpacing: '2px' }}>
+                YOUR ♡ VALENTINE
+              </h1>
+              <p className="text-white text-lg font-medium">Find Love That Lasts, On Campus.</p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-white">
+                  Step {step} of 7
+                </span>
+                <span className="text-sm font-medium brand-gold">
+                  {Math.round((step / 7) * 100)}%
+                </span>
+              </div>
+              <div className="h-2 bg-white bg-opacity-20 rounded-full overflow-hidden">
+                <div
+                  className="h-full progress-bar-valentine transition-all duration-500 ease-out"
+                  style={{ width: `${(step / 7) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Glass Card */}
+            <div className="glass-card rounded-3xl p-8 mb-6">
+              {renderStep()}
+            </div>
+
+            {step < 7 && step > 1 && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStep(step - 1)}
+                  className="px-6 py-3 bg-white bg-opacity-10 border-2 border-white border-opacity-30 rounded-xl font-semibold text-white hover:bg-opacity-20 transition-all flex items-center gap-2 backdrop-blur-sm"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Back
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (step === 6) {
+                      handleFinalRegistration();
+                    } else {
+                      setStep(step + 1);
+                    }
+                  }}
+                  disabled={!canProceed() || loading}
+                  className={`flex-1 py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                    canProceed() && !loading
+                      ? 'btn-valentine text-white hover:shadow-lg transform hover:scale-[1.02]'
+                      : 'bg-gray-400 bg-opacity-30 text-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  {loading ? (
+                    <>
+                      <Loader className="w-5 h-5" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      {step === 6 ? 'Complete Registration' : 'Continue'}
+                      <ChevronRight className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<DatingAppRegistration />, document.getElementById('root'));
+  </script>
+</body>
+</html>
