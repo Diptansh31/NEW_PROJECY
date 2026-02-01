@@ -5,11 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Find Your Valentine - Dating App</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="authPrepaint.css">
   <!-- Firebase SDK (compat) for navbar auth state -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="firebaseClient.js"></script>
+  <script>
+    // Prevent navbar auth UI flash by setting initial state before first paint.
+    (function () {
+      try {
+        var uid = localStorage.getItem('currentUserUid');
+        document.documentElement.dataset.auth = uid ? 'in' : 'out';
+      } catch (e) {
+        document.documentElement.dataset.auth = 'out';
+      }
+    })();
+  </script>
 </head>
 <body>
   <!-- Navigation -->
@@ -29,13 +41,11 @@
           <li><a href="#stories">Stories</a></li>
         </ul>
         <div class="nav-actions" id="nav-actions">
-          <a href="login.html" class="btn-login" id="nav-login">Login</a>
-          <a href="registrationPage.html" class="btn-signup" id="nav-signup">Sign Up</a>
+          <a href="login.html" class="btn-signup hidden" id="nav-get-started">Get Started</a>
           <!-- Shown when logged in -->
           <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
-            <img id="nav-profile-img" alt="Profile" />
+            <img id="nav-profile-img" alt="Profile" src="https://via.placeholder.com/100?text=%F0%9F%91%A4" />
           </a>
-          <button class="nav-logout hidden" id="nav-logout" type="button">Logout</button>
         </div>
       </div>
     </div>
@@ -48,7 +58,7 @@
         <div class="hero-left">
           <h1 class="hero-title">Find Your Best Match</h1>
           <p class="hero-description">Discover meaningful connections with people who share your interests and values. Start your journey to finding love today.</p>
-          <a href="registrationPage.html" class="btn-primary">Join Now</a>
+          <a href="login.html" class="btn-primary">Get Started</a>
           <div class="app-buttons">
             <a href="#" class="app-store-btn">
               <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store">
@@ -237,6 +247,7 @@
           <a href="#" class="social-icon">📷</a>
           <a href="#" class="social-icon">🐦</a>
         </div>
+        <button class="nav-logout hidden" id="footer-logout" type="button" style="margin-left:auto;">Logout</button>
       </div>
     </div>
   </footer>

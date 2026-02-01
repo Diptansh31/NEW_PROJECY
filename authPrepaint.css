@@ -1,0 +1,14 @@
+/* authPrepaint.css
+   Helps prevent flashes of incorrect auth UI before JS runs.
+*/
+
+/* By default, keep both hidden; inline head script sets data-auth quickly */
+html[data-auth="in"] #nav-get-started { display: none !important; }
+html[data-auth="in"] #nav-profile { display: inline-flex !important; }
+
+html[data-auth="out"] #nav-profile { display: none !important; }
+html[data-auth="out"] #nav-get-started { display: inline-flex !important; }
+
+/* Footer logout & profile logout are controlled by script.js; hide by default */
+#footer-logout { display: none; }
+#profile-logout.hidden { display: none; }

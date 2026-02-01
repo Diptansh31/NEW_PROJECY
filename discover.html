@@ -5,12 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Discover - Your Valentine</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="authPrepaint.css" />
 
   <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="firebaseClient.js"></script>
+  <script>
+    (function () {
+      try {
+        var uid = localStorage.getItem('currentUserUid');
+        document.documentElement.dataset.auth = uid ? 'in' : 'out';
+      } catch (e) {
+        document.documentElement.dataset.auth = 'out';
+      }
+    })();
+  </script>
 
   <style>
     .page { min-height: 100vh; background: linear-gradient(135deg, #1e1b4b 0%, #7c2d12 50%, #701a75 100%); }
@@ -55,10 +66,10 @@
         </ul>
 
         <div class="nav-actions" id="nav-actions">
+          <a href="login.html" class="btn-signup hidden" id="nav-get-started">Get Started</a>
           <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
-            <img id="nav-profile-img" alt="Profile" />
+            <img id="nav-profile-img" alt="Profile" src="https://via.placeholder.com/100?text=%F0%9F%91%A4" />
           </a>
-          <button class="nav-logout hidden" id="nav-logout" type="button">Logout</button>
         </div>
       </div>
     </div>
@@ -98,8 +109,6 @@
       // Navbar controls
       const navProfile = document.getElementById('nav-profile');
       const navProfileImg = document.getElementById('nav-profile-img');
-      const navLogout = document.getElementById('nav-logout');
-
       function setError(msg) {
         if (!msg) {
           errorBox.style.display = 'none';
@@ -255,7 +264,6 @@
 
         // Navbar state
         navProfile.classList.remove('hidden');
-        navLogout.classList.remove('hidden');
 
         try {
           const me = await getMyProfile(user.uid);
@@ -265,14 +273,6 @@
         }
 
         await loadSuggestions(user);
-
-        navLogout.addEventListener('click', async () => {
-          await auth.signOut();
-          localStorage.removeItem('currentUserUid');
-          localStorage.removeItem('currentUserProfile');
-          localStorage.removeItem('currentUserAvatar');
-          window.location.href = 'index.html';
-        });
 
         refreshBtn.addEventListener('click', () => loadSuggestions(user));
         searchBtn.addEventListener('click', () => searchByUsername(user, searchInput.value));

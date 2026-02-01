@@ -191,10 +191,11 @@ body {
   background: linear-gradient(135deg, var(--primary-pink), var(--secondary-purple));
   color: var(--text-primary);
   text-decoration: none;
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-radius: var(--radius-full);
   transition: all var(--transition-base);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .btn-signup:hover {
@@ -868,6 +869,18 @@ body {
 .footer-social {
   display: flex;
   gap: 1rem;
+}
+
+/* Footer logout button */
+#footer-logout {
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  #footer-logout {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .social-icon {

@@ -167,40 +167,46 @@ document.querySelectorAll('.badge').forEach(badge => {
 
 // Navbar auth UI (Profile avatar + Logout)
 (function initNavbarAuth() {
-  const loginLink = document.getElementById('nav-login');
-  const signupLink = document.getElementById('nav-signup');
+  const getStartedLink = document.getElementById('nav-get-started');
   const profileLink = document.getElementById('nav-profile');
   const profileImg = document.getElementById('nav-profile-img');
-  const logoutBtn = document.getElementById('nav-logout');
 
-  // If this page doesn't have the navbar ids, do nothing.
-  if (!loginLink || !signupLink || !profileLink || !logoutBtn || !profileImg) return;
+  // Optional logout buttons (footer + profile page)
+  const footerLogoutBtn = document.getElementById('footer-logout');
+  const profileLogoutBtn = document.getElementById('profile-logout');
+
+  // If this page doesn't have navbar ids, do nothing.
+  if (!getStartedLink || !profileLink || !profileImg) return;
 
   // If firebaseClient isn't loaded on this page, fall back to old localStorage behavior.
   if (!window.FirebaseClient) {
     const avatar = localStorage.getItem('currentUserAvatar');
     const uid = localStorage.getItem('currentUserUid');
     const isLoggedIn = !!uid;
+    document.documentElement.dataset.auth = isLoggedIn ? 'in' : 'out';
 
     if (isLoggedIn) {
-      loginLink.classList.add('hidden');
-      signupLink.classList.add('hidden');
+      getStartedLink.classList.add('hidden');
       profileLink.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
+      if (footerLogoutBtn) footerLogoutBtn.classList.remove('hidden');
+      if (profileLogoutBtn) profileLogoutBtn.classList.remove('hidden');
       profileImg.src = avatar || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
     } else {
-      loginLink.classList.remove('hidden');
-      signupLink.classList.remove('hidden');
+      getStartedLink.classList.remove('hidden');
       profileLink.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
+      if (footerLogoutBtn) footerLogoutBtn.classList.add('hidden');
+      if (profileLogoutBtn) profileLogoutBtn.classList.add('hidden');
     }
 
-    logoutBtn.addEventListener('click', () => {
+    function logoutLocal() {
       localStorage.removeItem('currentUserUid');
       localStorage.removeItem('currentUserProfile');
       localStorage.removeItem('currentUserAvatar');
       window.location.href = 'index.html';
-    });
+    }
+
+    footerLogoutBtn?.addEventListener('click', logoutLocal);
+    profileLogoutBtn?.addEventListener('click', logoutLocal);
     return;
   }
 
@@ -208,12 +214,13 @@ document.querySelectorAll('.badge').forEach(badge => {
 
   auth.onAuthStateChanged(async (user) => {
     const isLoggedIn = !!user;
+    document.documentElement.dataset.auth = isLoggedIn ? 'in' : 'out';
 
     if (isLoggedIn) {
-      loginLink.classList.add('hidden');
-      signupLink.classList.add('hidden');
+      getStartedLink.classList.add('hidden');
       profileLink.classList.remove('hidden');
-      logoutBtn.classList.remove('hidden');
+      if (footerLogoutBtn) footerLogoutBtn.classList.remove('hidden');
+      if (profileLogoutBtn) profileLogoutBtn.classList.remove('hidden');
 
       try {
         const snap = await db.collection('users').doc(user.uid).get();
@@ -230,14 +237,14 @@ document.querySelectorAll('.badge').forEach(badge => {
         profileImg.src = avatar || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
       }
     } else {
-      loginLink.classList.remove('hidden');
-      signupLink.classList.remove('hidden');
+      getStartedLink.classList.remove('hidden');
       profileLink.classList.add('hidden');
-      logoutBtn.classList.add('hidden');
+      if (footerLogoutBtn) footerLogoutBtn.classList.add('hidden');
+      if (profileLogoutBtn) profileLogoutBtn.classList.add('hidden');
     }
   });
 
-  logoutBtn.addEventListener('click', async () => {
+  async function doLogout() {
     try {
       await auth.signOut();
     } catch (e) {
@@ -247,13 +254,16 @@ document.querySelectorAll('.badge').forEach(badge => {
     localStorage.removeItem('currentUserProfile');
     localStorage.removeItem('currentUserAvatar');
 
-    loginLink.classList.remove('hidden');
-    signupLink.classList.remove('hidden');
+    getStartedLink.classList.remove('hidden');
     profileLink.classList.add('hidden');
-    logoutBtn.classList.add('hidden');
+    if (footerLogoutBtn) footerLogoutBtn.classList.add('hidden');
+    if (profileLogoutBtn) profileLogoutBtn.classList.add('hidden');
 
     window.location.href = 'index.html';
-  });
+  }
+
+  footerLogoutBtn?.addEventListener('click', doLogout);
+  profileLogoutBtn?.addEventListener('click', doLogout);
 })();
 
 // Console welcome message
