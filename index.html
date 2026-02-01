@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Find Your Valentine - Dating App</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Firebase SDK (compat) for navbar auth state -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="firebaseClient.js"></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-content">
+        <div class="logo">
+          <span class="logo-text">find your valentine</span>
+          <span class="logo-icon">❤️</span>
+        </div>
+
+
+        <ul class="nav-menu" id="nav-menu">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#members">Members</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#stories">Stories</a></li>
+        </ul>
+        <div class="nav-actions" id="nav-actions">
+          <a href="login.html" class="btn-login" id="nav-login">Login</a>
+          <a href="registrationPage.html" class="btn-signup" id="nav-signup">Sign Up</a>
+          <!-- Shown when logged in -->
+          <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
+            <img id="nav-profile-img" alt="Profile" />
+          </a>
+          <button class="nav-logout hidden" id="nav-logout" type="button">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="home" class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-left">
+          <h1 class="hero-title">Find Your Best Match</h1>
+          <p class="hero-description">Discover meaningful connections with people who share your interests and values. Start your journey to finding love today.</p>
+          <a href="registrationPage.html" class="btn-primary">Join Now</a>
+          <div class="app-buttons">
+            <a href="#" class="app-store-btn">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store">
+            </a>
+            <a href="#" class="play-store-btn">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play">
+            </a>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="hero-image-wrapper">
+            <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&h=500&fit=crop" alt="Person using phone" class="hero-image">
+            <div class="badge badge-members">2.8k+ Members</div>
+            <div class="badge badge-emoji">😍💕</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Meet Your Other Half Section -->
+  <section id="members" class="members-section">
+    <div class="container">
+      <h2 class="section-title" id="members-title">Meet Your Other Half</h2>
+      <div class="filter-bar">
+        <div class="filter-group">
+          <input id="members-search" class="filter-select" placeholder="Search username" style="min-width: 220px;" />
+
+          <select class="filter-select" id="filter-branch">
+            <option value="">Branch (All)</option>
+          </select>
+
+          <select class="filter-select" id="filter-year">
+            <option value="">Year (All)</option>
+          </select>
+
+          <select class="filter-select" id="filter-interests">
+            <option value="">Interest (All)</option>
+          </select>
+
+          <button class="btn-search" id="members-btn-search" type="button">Search</button>
+          <button class="btn-search" id="members-btn-refresh" type="button" style="background: rgba(255,255,255,0.12);">Refresh</button>
+        </div>
+        <a href="#" class="explore-link">Explore All Stories →</a>
+      </div>
+      <div id="members-error" style="display:none; margin: 12px 0; padding: 12px 14px; border-radius: 14px; background: rgba(127, 29, 29, 0.35); border: 1px solid rgba(255, 255, 255, 0.15); color: #fecaca;"></div>
+      <div class="profile-grid" id="members-grid">
+        <div style="opacity:0.85;">Login to see suggestions.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works Section -->
+  <section id="how-it-works" class="how-it-works">
+    <div class="container">
+      <h2 class="section-title">How Will Love Find Your Way?</h2>
+      <div class="steps-container">
+        <div class="step-card">
+          <div class="step-icon">💑</div>
+          <h3 class="step-title">Choose Partner</h3>
+          <p class="step-description">Browse through profiles and find someone who catches your eye</p>
+        </div>
+        <div class="step-connector">
+          <svg viewBox="0 0 100 50" class="connector-svg">
+            <path d="M 0 25 Q 50 0, 100 25" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="5,5"/>
+          </svg>
+        </div>
+        <div class="step-card">
+          <div class="step-icon">💌</div>
+          <h3 class="step-title">Send Message</h3>
+          <p class="step-description">Start a conversation and get to know each other better</p>
+        </div>
+        <div class="step-connector">
+          <svg viewBox="0 0 100 50" class="connector-svg">
+            <path d="M 0 25 Q 50 0, 100 25" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="5,5"/>
+          </svg>
+        </div>
+        <div class="step-card">
+          <div class="step-icon">☕</div>
+          <h3 class="step-title">Go On A Date</h3>
+          <p class="step-description">Meet in person and create beautiful memories together</p>
+        </div>
+      </div>
+      <div class="how-it-works-actions">
+        <button class="btn-secondary">Learn More</button>
+        <button class="btn-video">▶ Video Tutorial</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Success Stories Section -->
+  <section id="stories" class="success-stories">
+    <div class="container">
+      <h2 class="section-title">Watch Successful Love Stories</h2>
+      <div class="stories-grid">
+        <div class="story-card">
+          <div class="story-video">
+            <img src="https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=600&h=400&fit=crop" alt="Story">
+            <button class="play-btn">▶</button>
+          </div>
+          <p class="story-names">Anna and Peter</p>
+        </div>
+        <div class="story-card">
+          <div class="story-video">
+            <img src="https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=600&h=400&fit=crop" alt="Story">
+            <button class="play-btn">▶</button>
+          </div>
+          <p class="story-names">Gisela and Jose</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="testimonials">
+    <div class="container">
+      <div class="testimonials-wrapper">
+        <div class="floating-avatar avatar-1">
+          <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop" alt="User">
+        </div>
+        <div class="floating-avatar avatar-2">
+          <img src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop" alt="User">
+        </div>
+        <div class="floating-avatar avatar-3">
+          <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop" alt="User">
+        </div>
+        <div class="testimonial-card">
+          <p class="testimonial-text">"I found my soulmate through Find Your Valentine! The app made it so easy to connect with genuine people. We've been together for 2 years now!"</p>
+          <div class="testimonial-rating">⭐⭐⭐⭐⭐</div>
+          <p class="testimonial-author">- Jessica Martinez</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- App Download Section -->
+  <section class="app-download">
+    <div class="container">
+      <div class="app-download-content">
+        <div class="app-download-left">
+          <h2 class="app-download-title">Download Find Your Valentine App On Your Smartphone</h2>
+          <p class="app-download-description">Get the app and start connecting with amazing people near you. Available on iOS and Android.</p>
+          <div class="app-buttons-download">
+            <a href="#" class="app-store-btn">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store">
+            </a>
+            <a href="#" class="play-store-btn">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play">
+            </a>
+          </div>
+        </div>
+        <div class="app-download-right">
+          <div class="phone-mockup">
+            <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=300&h=600&fit=crop" alt="Phone mockup 1" class="phone-img phone-1">
+            <img src="https://images.unsplash.com/photo-1551650975-87deedd944c3?w=300&h=600&fit=crop" alt="Phone mockup 2" class="phone-img phone-2">
+          </div>
+          <div class="pink-circle"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mailing List Section -->
+  <section class="mailing-list">
+    <div class="container">
+      <h2 class="section-title">Join Our Mailing List!</h2>
+      <p class="mailing-description">Stay updated with the latest features and success stories</p>
+      <form class="mailing-form">
+        <input type="email" placeholder="Enter your email address" class="email-input">
+        <button type="submit" class="btn-subscribe">Subscribe</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-logo">
+          <span class="logo-text">find your valentine</span>
+          <span class="logo-icon">❤️</span>
+        </div>
+        <p class="footer-copyright">© 2024 Find Your Valentine. All rights reserved.</p>
+        <div class="footer-social">
+          <a href="#" class="social-icon">📘</a>
+          <a href="#" class="social-icon">📷</a>
+          <a href="#" class="social-icon">🐦</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script src="homeDiscover.js"></script>
+</body>
+</html>

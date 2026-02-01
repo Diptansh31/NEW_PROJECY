@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discover - Your Valentine</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="firebaseClient.js"></script>
+
+  <style>
+    .page { min-height: 100vh; background: linear-gradient(135deg, #1e1b4b 0%, #7c2d12 50%, #701a75 100%); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 18px; }
+    .card { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 18px; backdrop-filter: blur(14px); }
+    .row { display:flex; gap:12px; flex-wrap: wrap; align-items:center; justify-content: space-between; }
+    .search { display:flex; gap:10px; flex: 1; min-width: 260px; }
+    .search input { flex:1; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color:#fff; }
+    .btn { padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(236,72,153,0.25); color:#fff; cursor:pointer; }
+    .btn.secondary { background: rgba(255,255,255,0.08); }
+    .grid { margin-top: 16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .user-card { display:flex; gap:12px; align-items:center; padding: 14px; border-radius: 16px; background: rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(236,72,153,0.35); background: rgba(255,255,255,0.08); }
+    .meta { flex:1; min-width: 0; }
+    .meta .name { font-weight: 800; color:#fff; }
+    .meta .sub { font-size: 0.85rem; opacity: 0.85; color:#fff; margin-top: 2px; }
+    .pill { font-size: 0.75rem; padding: 6px 10px; border-radius: 999px; border:1px solid rgba(255,255,255,0.16); background: rgba(0,0,0,0.18); color:#fff; }
+    .hint { margin-top: 10px; opacity: 0.9; color:#fff; font-size: 0.9rem; }
+    .error { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgba(127, 29, 29, 0.35); border: 1px solid rgba(255, 255, 255, 0.15); color: #fecaca; display:none; }
+  </style>
+</head>
+<body class="page">
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-content">
+        <div class="logo">
+          <span class="logo-text">find your valentine</span>
+          <span class="logo-icon">❤</span>
+        </div>
+
+        <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+        </button>
+
+        <ul class="nav-menu" id="nav-menu">
+          <li><a href="index.html#home">Home</a></li>
+          <li><a href="index.html#members">Members</a></li>
+          <li><a href="index.html#how-it-works">How It Works</a></li>
+          <li><a href="index.html#stories">Stories</a></li>
+        </ul>
+
+        <div class="nav-actions" id="nav-actions">
+          <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
+            <img id="nav-profile-img" alt="Profile" />
+          </a>
+          <button class="nav-logout hidden" id="nav-logout" type="button">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <h2 style="color:#fff; margin:0;">Suggested Matches</h2>
+          <div class="hint">We suggest people based on common interests and campus details (Male↔Female). Use search to find a username.</div>
+        </div>
+        <div class="search">
+          <input id="search" type="text" placeholder="Search by username (exact)" autocomplete="off" />
+          <button id="btn-search" class="btn secondary" type="button">Search</button>
+          <button id="btn-refresh" class="btn" type="button">Refresh</button>
+        </div>
+      </div>
+
+      <div id="error" class="error"></div>
+      <div id="results" class="grid" aria-label="Suggested users"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const { auth, db } = window.FirebaseClient.initFirebase();
+
+      const results = document.getElementById('results');
+      const errorBox = document.getElementById('error');
+      const searchInput = document.getElementById('search');
+      const searchBtn = document.getElementById('btn-search');
+      const refreshBtn = document.getElementById('btn-refresh');
+
+      // Navbar controls
+      const navProfile = document.getElementById('nav-profile');
+      const navProfileImg = document.getElementById('nav-profile-img');
+      const navLogout = document.getElementById('nav-logout');
+
+      function setError(msg) {
+        if (!msg) {
+          errorBox.style.display = 'none';
+          errorBox.textContent = '';
+          return;
+        }
+        errorBox.style.display = 'block';
+        errorBox.textContent = msg;
+      }
+
+      function escapeHtml(str) {
+        return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      }
+
+      function renderCards(items) {
+        results.replaceChildren();
+        if (!items.length) {
+          const empty = document.createElement('div');
+          empty.className = 'hint';
+          empty.textContent = 'No suggestions found. Try refreshing or broaden your profile interests.';
+          results.appendChild(empty);
+          return;
+        }
+
+        items.forEach(({ uid, profile, score, shared }) => {
+          const card = document.createElement('div');
+          card.className = 'user-card';
+
+          const img = document.createElement('img');
+          img.className = 'avatar';
+          img.src = profile.avatarDataUrl || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
+          img.alt = 'Avatar';
+
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          meta.innerHTML = `
+            <div class="name">${escapeHtml(profile.fullName || profile.username || 'User')}</div>
+            <div class="sub">@${escapeHtml(profile.username || '')} • ${escapeHtml(profile.collegeName || '')} • ${escapeHtml(profile.branchCode || '')}</div>
+            <div class="sub">Shared interests: ${escapeHtml(shared.join(', ') || '-')}</div>
+          `;
+
+          const right = document.createElement('div');
+          right.style.display = 'flex';
+          right.style.flexDirection = 'column';
+          right.style.gap = '8px';
+          right.style.alignItems = 'flex-end';
+
+          const pill = document.createElement('div');
+          pill.className = 'pill';
+          pill.textContent = `Score: ${score}`;
+
+          const view = document.createElement('a');
+          view.className = 'pill';
+          view.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+          view.textContent = 'View Profile';
+          view.style.textDecoration = 'none';
+
+          right.appendChild(pill);
+          right.appendChild(view);
+
+          card.appendChild(img);
+          card.appendChild(meta);
+          card.appendChild(right);
+
+          results.appendChild(card);
+        });
+      }
+
+      function scoreCandidate(me, other) {
+        const myInterests = new Set((me.interests || []).map(s => String(s).toLowerCase()));
+        const otherInterests = new Set((other.interests || []).map(s => String(s).toLowerCase()));
+        const shared = [];
+        myInterests.forEach(i => { if (otherInterests.has(i)) shared.push(i); });
+
+        let score = 0;
+        score += shared.length * 5;
+        if (me.collegeName && other.collegeName && me.collegeName === other.collegeName) score += 10;
+        if (me.branchCode && other.branchCode && me.branchCode === other.branchCode) score += 5;
+        if (me.graduationYear && other.graduationYear && Math.abs(me.graduationYear - other.graduationYear) <= 1) score += 2;
+
+        return { score, shared };
+      }
+
+      async function getMyProfile(uid) {
+        const snap = await db.collection('users').doc(uid).get();
+        if (!snap.exists) throw new Error('Profile not found. Please complete registration.');
+        return snap.data();
+      }
+
+      async function loadSuggestions(user) {
+        setError('');
+        const me = await getMyProfile(user.uid);
+
+        // only Male↔Female suggestions
+        const targetGender = me.gender === 'Male' ? 'Female' : 'Male';
+
+        // Candidate set: same college + target gender. (You can broaden later)
+        const q = db.collection('users')
+          .where('gender', '==', targetGender)
+          .where('collegeName', '==', me.collegeName)
+          .limit(80);
+
+        const snap = await q.get();
+        const candidates = [];
+        snap.forEach(doc => {
+          if (doc.id === user.uid) return;
+          candidates.push({ uid: doc.id, profile: doc.data() });
+        });
+
+        const ranked = candidates
+          .map(c => {
+            const { score, shared } = scoreCandidate(me, c.profile);
+            return { ...c, score, shared };
+          })
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 18);
+
+        renderCards(ranked);
+      }
+
+      async function searchByUsername(user, usernameRaw) {
+        setError('');
+        const username = window.FirebaseClient.normalizeUsername(usernameRaw);
+        if (!username) {
+          setError('Enter a username to search.');
+          return;
+        }
+
+        const index = await db.collection('usernames').doc(username).get();
+        if (!index.exists) {
+          setError('No user found with that username.');
+          return;
+        }
+
+        const uid = index.data().uid;
+        const snap = await db.collection('users').doc(uid).get();
+        if (!snap.exists) {
+          setError('User exists in index but profile is missing.');
+          return;
+        }
+
+        const me = await getMyProfile(user.uid);
+        const other = snap.data();
+        const { score, shared } = scoreCandidate(me, other);
+        renderCards([{ uid, profile: other, score, shared }]);
+      }
+
+      auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          window.location.href = 'login.html';
+          return;
+        }
+
+        // Navbar state
+        navProfile.classList.remove('hidden');
+        navLogout.classList.remove('hidden');
+
+        try {
+          const me = await getMyProfile(user.uid);
+          navProfileImg.src = me.avatarDataUrl || localStorage.getItem('currentUserAvatar') || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
+        } catch (e) {
+          // ignore
+        }
+
+        await loadSuggestions(user);
+
+        navLogout.addEventListener('click', async () => {
+          await auth.signOut();
+          localStorage.removeItem('currentUserUid');
+          localStorage.removeItem('currentUserProfile');
+          localStorage.removeItem('currentUserAvatar');
+          window.location.href = 'index.html';
+        });
+
+        refreshBtn.addEventListener('click', () => loadSuggestions(user));
+        searchBtn.addEventListener('click', () => searchByUsername(user, searchInput.value));
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            searchByUsername(user, searchInput.value);
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

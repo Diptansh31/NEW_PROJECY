@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find Your Valentine - Login</title>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+  <script src="firebaseClient.js"></script>
+
+  <style>
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
+
+    :root {
+      --primary-pink: #ff6b9d;
+      --primary-pink-dark: #e85a8a;
+      --secondary-purple: #c084fc;
+      --dark-bg: #1a0a1e;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.15);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.75);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a0a1e 0%, #2d1b3d 50%, #1a0a1e 100%);
+      overflow-x: hidden;
+      padding: 1rem;
+    }
+
+    .background-overlay {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      background: url('https://images.unsplash.com/photo-1518199266791-739d6ff26df5?q=80&w=2070&auto=format&fit=crop') center/cover;
+      filter: blur(20px) brightness(0.4);
+      z-index: -1;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .brand-name {
+      background: linear-gradient(135deg, var(--primary-pink), var(--secondary-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 2rem;
+      letter-spacing: 2px;
+      margin-bottom: 0.625rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .tagline { 
+      color: var(--text-primary); 
+      font-size: 1.125rem; 
+      font-weight: 600;
+      margin-bottom: 0.375rem;
+    }
+
+    .sub-tagline {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      margin-bottom: 1.625rem;
+    }
+
+    .input-group { 
+      text-align: left; 
+      margin-bottom: 1.125rem; 
+    }
+
+    .input-group label {
+      color: var(--text-primary);
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      margin-left: 0.3125rem;
+      font-weight: 700;
+    }
+
+    .input-wrapper { 
+      position: relative; 
+      display: flex; 
+      align-items: center; 
+    }
+
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.9375rem 1.25rem;
+      border-radius: var(--radius-md);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.9);
+      font-size: 1rem;
+      outline: none;
+      transition: 0.3s;
+      color: #1a0a1e;
+    }
+
+    input:focus {
+      border-color: var(--primary-pink);
+      box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
+    }
+
+    input:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .input-icon { 
+      position: absolute; 
+      right: 0.9375rem; 
+      font-size: 1.2rem; 
+      opacity: 0.6;
+    }
+
+    .cta-button {
+      width: 100%;
+      padding: 1rem;
+      border-radius: var(--radius-full);
+      border: none;
+      background: linear-gradient(90deg, var(--primary-pink), var(--secondary-purple));
+      color: white;
+      font-weight: 800;
+      font-size: 0.9375rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+    }
+
+    .cta-button:hover:not(:disabled) { 
+      transform: translateY(-2px); 
+      box-shadow: 0 6px 20px rgba(255, 107, 157, 0.6); 
+    }
+
+    .cta-button:disabled { 
+      opacity: 0.55; 
+      cursor: not-allowed; 
+      transform: none; 
+    }
+
+    .btn-link {
+      background: transparent;
+      color: var(--primary-pink);
+      font-weight: 800;
+      padding: 0.625rem 0.875rem;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+    }
+
+    .btn-link:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--primary-pink);
+    }
+
+    .error {
+      margin-top: 0.625rem;
+      padding: 0.625rem 0.75rem;
+      border-radius: var(--radius-md);
+      background: rgba(127, 29, 29, 0.35);
+      border: 1px solid var(--card-border);
+      color: #fecaca;
+      font-size: 0.875rem;
+      text-align: left;
+      line-height: 1.4;
+      display: none;
+    }
+
+    .form-footer { 
+      margin-top: 1.25rem; 
+    }
+
+    .legal-links {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .legal-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+
+    .legal-links a:hover { 
+      color: var(--primary-pink);
+    }
+
+    .divider-row {
+      margin: 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .divider-row::before,
+    .divider-row::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--card-border);
+    }
+
+    .divider-row span {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Responsive Styles */
+    @media (max-width: 768px) {
+      .glass-card {
+        padding: 2rem;
+      }
+
+      .brand-name {
+        font-size: 1.75rem;
+      }
+
+      .tagline {
+        font-size: 1rem;
+      }
+
+      input[type="email"],
+      input[type="password"] {
+        padding: 0.875rem 1rem;
+        font-size: 0.9375rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 0.75rem;
+      }
+
+      .glass-card {
+        padding: 1.5rem;
+      }
+
+      .brand-name {
+        font-size: 1.5rem;
+      }
+
+      .tagline {
+        font-size: 0.9375rem;
+      }
+
+      .sub-tagline {
+        font-size: 0.875rem;
+      }
+
+      input[type="email"],
+      input[type="password"] {
+        padding: 0.75rem 0.875rem;
+      }
+
+      .cta-button {
+        padding: 0.875rem;
+      }
+
+      .legal-links {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-overlay"></div>
+
+  <main class="login-container">
+    <section class="glass-card">
+      <header class="logo-area">
+        <h1 class="brand-name">find your valentine ❤️</h1>
+        <p class="tagline">Welcome back</p>
+        <p class="sub-tagline">Login with Email/Password or Google</p>
+      </header>
+
+      <form id="login-form" novalidate>
+        <div class="input-group">
+          <label for="email">Email</label>
+          <div class="input-wrapper">
+            <input type="email" id="email" placeholder="name.branch.year@college.ac.in" autocomplete="email" required />
+            <span class="input-icon">📧</span>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="password">Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="password" placeholder="Your password" autocomplete="current-password" required />
+            <span class="input-icon">🔒</span>
+          </div>
+          <div id="error" class="error"></div>
+        </div>
+
+        <button type="submit" class="cta-button">LOGIN</button>
+
+        <div class="divider-row">
+          <span>or</span>
+        </div>
+
+        <div style="display:flex; gap:0.625rem; justify-content:center;">
+          <button type="button" id="btn-google" class="btn-link">Continue with Google</button>
+        </div>
+      </form>
+
+      <footer class="form-footer">
+        <div class="legal-links">
+          <a href="registrationPage.html">New here? Sign Up</a>
+          <a href="index.html">Home</a>
+        </div>
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const { auth, db } = window.FirebaseClient.initFirebase();
+
+      const form = document.getElementById('login-form');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+      const errorBox = document.getElementById('error');
+      const googleBtn = document.getElementById('btn-google');
+
+      function setError(msg) {
+        if (!msg) {
+          errorBox.style.display = 'none';
+          errorBox.textContent = '';
+          return;
+        }
+        errorBox.style.display = 'block';
+        errorBox.textContent = msg;
+      }
+
+      function cacheProfile(uid, profile) {
+        localStorage.setItem('currentUserUid', uid);
+        localStorage.setItem('currentUserProfile', JSON.stringify(profile || {}));
+        if (profile?.avatarDataUrl) localStorage.setItem('currentUserAvatar', profile.avatarDataUrl);
+      }
+
+      async function fetchMyProfile(uid) {
+        const snap = await db.collection('users').doc(uid).get();
+        return snap.exists ? snap.data() : null;
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setError('');
+
+        const email = (emailInput.value || '').trim().toLowerCase();
+        const password = passwordInput.value || '';
+
+        if (!email || !password) {
+          setError('Please enter email and password.');
+          return;
+        }
+
+        try {
+          const cred = await auth.signInWithEmailAndPassword(email, password);
+          const profile = await fetchMyProfile(cred.user.uid);
+          cacheProfile(cred.user.uid, profile);
+          window.location.href = 'index.html';
+        } catch (err) {
+          console.error(err);
+          setError(err?.message || String(err));
+        }
+      });
+
+      googleBtn.addEventListener('click', async () => {
+        setError('');
+        try {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          const cred = await auth.signInWithPopup(provider);
+
+          const uid = cred.user.uid;
+          const existing = await db.collection('users').doc(uid).get();
+          if (!existing.exists) {
+            window.location.href = 'registrationPage.html';
+            return;
+          }
+
+          cacheProfile(uid, existing.data());
+          window.location.href = 'index.html';
+        } catch (err) {
+          console.error(err);
+          setError(err?.message || String(err));
+        }
+      });
+
+      emailInput.addEventListener('input', () => setError(''));
+      passwordInput.addEventListener('input', () => setError(''));
+
+      auth.onAuthStateChanged(async (user) => {
+        if (user) {
+          try {
+            const profile = await fetchMyProfile(user.uid);
+            cacheProfile(user.uid, profile);
+          } catch (e) {
+            // ignore
+          }
+          window.location.href = 'index.html';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

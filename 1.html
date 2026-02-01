@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Valentine - Login</title>
+    <style>* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #4a0e0e; /* Deep wine base */
+    background-image: radial-gradient(circle at center, #8b1e1e 0%, #310808 100%);
+    overflow: hidden;
+}
+
+/* Background "Heart" Blur effect */
+.background-overlay {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: url('https://images.unsplash.com/photo-1518199266791-739d6ff26df5?q=80&w=2070&auto=format&fit=crop') center/cover;
+    filter: blur(20px) brightness(0.4);
+    z-index: -1;
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 30px;
+    padding: 40px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+.brand-name {
+    color: #f3d19e; /* Elegant gold tone */
+    font-size: 2rem;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.tagline {
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.sub-tagline {
+    color: #cccccc;
+    font-size: 0.9rem;
+    margin-bottom: 30px;
+}
+
+.input-group {
+    text-align: left;
+    margin-bottom: 25px;
+}
+
+.input-group label {
+    color: #ffffff;
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    margin-left: 5px;
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+input[type="email"] {
+    width: 100%;
+    padding: 15px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    outline: none;
+    transition: 0.3s;
+}
+
+input:focus {
+    border-color: #f3d19e;
+    box-shadow: 0 0 10px rgba(243, 209, 158, 0.3);
+}
+
+.input-icon {
+    position: absolute;
+    right: 15px;
+    font-size: 1.2rem;
+}
+
+.cta-button {
+    width: 100%;
+    padding: 16px;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(90deg, #8b1e1e, #d64545);
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(139, 30, 30, 0.4);
+}
+
+.cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 30, 30, 0.6);
+}
+
+.form-footer {
+    margin-top: 30px;
+}
+
+.social-proof {
+    color: #f3d19e;
+    font-size: 0.75rem;
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
+.legal-links a {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.7rem;
+    margin: 0 10px;
+    opacity: 0.6;
+}
+
+.legal-links a:hover {
+    opacity: 1;
+}</style>
+</head>
+<body>
+    <div class="background-overlay"></div>
+    
+    <main class="login-container">
+        <section class="glass-card">
+            <header class="logo-area">
+                <h1 class="brand-name">YOUR ♡ VALENTINE</h1>
+                <p class="tagline">Find Love That Lasts, On Campus.</p>
+                <p class="sub-tagline">Match with students at your university</p>
+            </header>
+
+            <form class="login-form">
+                <div class="input-group">
+                    <label for="email">University Email</label>
+                    <div class="input-wrapper">
+                        <input type="email" id="email" placeholder="student@university.edu" required>
+                        <span class="input-icon">🎓</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="cta-button">VERIFY MY STATUS</button>
+            </form>
+
+            <footer class="form-footer">
+                <div class="legal-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Community Guidelines</a>
+                </div>
+            </footer>
+        </section>
+    </main>
+</body>
+</html>

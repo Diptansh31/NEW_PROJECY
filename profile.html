@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Valentine - Profile</title>
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="firebaseClient.js"></script>
+
+  <style>
+    .profile-page {
+      padding: 40px 0 80px;
+    }
+
+    .profile-shell {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      padding: 28px;
+    }
+
+    .profile-header {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    .profile-avatar {
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 3px solid rgba(243, 209, 158, 0.6);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+      background: rgba(255, 255, 255, 0.1);
+      flex: 0 0 auto;
+    }
+
+    .profile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile-title {
+      color: #f3d19e;
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .profile-sub {
+      color: rgba(255, 255, 255, 0.88);
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .card-mini {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      padding: 16px;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .card-mini h3 {
+      color: #f3d19e;
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-weight: 600;
+    }
+
+    .bio-box {
+      margin-top: 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      padding: 16px;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .bio-box h3 { color: #f3d19e; margin-bottom: 8px; }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .photos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .photo {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      aspect-ratio: 1 / 1;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 50px 20px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .empty a {
+      color: #f3d19e;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+      .photos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 420px) {
+      .photos-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-content">
+        <div class="logo">
+          <span class="logo-text">find your valentine</span>
+          <span class="logo-icon">❤️</span>
+        </div>
+
+        <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+        </button>
+
+        <ul class="nav-menu" id="nav-menu">
+          <li><a href="index.html#home">Home</a></li>
+          <li><a href="index.html#members">Members</a></li>
+          <li><a href="index.html#how-it-works">How It Works</a></li>
+          <li><a href="index.html#stories">Stories</a></li>
+        </ul>
+        <div class="nav-actions" id="nav-actions">
+          <a href="login.html" class="btn-login" id="nav-login">Login</a>
+          <a href="registrationPage.html" class="btn-signup" id="nav-signup">Sign Up</a>
+          <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
+            <img id="nav-profile-img" alt="Profile" />
+          </a>
+          <button class="nav-logout hidden" id="nav-logout" type="button">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="profile-page">
+    <div class="container">
+      <section class="profile-shell" id="profile-shell">
+        <div id="profile-loading" class="empty">Loading profile…</div>
+
+        <div id="profile-empty" class="empty hidden">
+          You are not logged in. Please <a href="login.html">login</a>.
+        </div>
+
+        <div id="profile-content" class="hidden">
+          <div class="profile-header">
+            <div class="profile-avatar">
+              <img id="profile-avatar-img" alt="Profile photo" />
+            </div>
+            <div>
+              <div class="profile-title" id="profile-name">-</div>
+              <div class="profile-sub" id="profile-email">-</div>
+              <div class="profile-sub" id="profile-subline">-</div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="card-mini">
+              <h3>College</h3>
+              <div class="value" id="profile-college">-</div>
+            </div>
+            <div class="card-mini">
+              <h3>Branch</h3>
+              <div class="value" id="profile-branch">-</div>
+            </div>
+            <div class="card-mini">
+              <h3>Graduation Year</h3>
+              <div class="value" id="profile-year">-</div>
+            </div>
+            <div class="card-mini">
+              <h3>Gender</h3>
+              <div class="value" id="profile-gender">-</div>
+            </div>
+          </div>
+
+          <div class="bio-box">
+            <h3>Interests</h3>
+            <div id="profile-interests" class="chips"></div>
+          </div>
+
+          <div class="bio-box">
+            <h3>Bio</h3>
+            <div id="profile-bio">-</div>
+          </div>
+
+          <div class="bio-box">
+            <h3>Photos</h3>
+            <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
+              Note: this demo stores only the first uploaded photo (avatar) in Firestore. Full photo storage needs Firebase Storage.
+            </p>
+            <div class="photos-grid" id="profile-photos"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const { auth, db } = window.FirebaseClient.initFirebase();
+
+      const loading = document.getElementById('profile-loading');
+      const empty = document.getElementById('profile-empty');
+      const content = document.getElementById('profile-content');
+
+      const params = new URLSearchParams(window.location.search);
+      const requestedUid = params.get('uid');
+
+      const cachedProfile = localStorage.getItem('currentUserProfile');
+      const cachedUid = localStorage.getItem('currentUserUid');
+
+      function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value || '-';
+      }
+
+      function render(profile) {
+        const avatar = profile?.avatarDataUrl || localStorage.getItem('currentUserAvatar') || 'https://via.placeholder.com/200?text=%F0%9F%91%A4';
+        document.getElementById('profile-avatar-img').src = avatar;
+
+        setText('profile-name', profile?.fullName);
+        setText('profile-email', profile?.collegeEmail);
+        setText('profile-subline', profile?.collegeName ? `🎓 ${profile.collegeName}` : '');
+
+        setText('profile-college', profile?.collegeName);
+        setText('profile-branch', profile?.branch ? `${profile.branch}${profile.branchCode ? ` (${profile.branchCode})` : ''}` : '');
+        setText('profile-year', profile?.graduationYear ? `Class of ${profile.graduationYear}` : '');
+        setText('profile-gender', profile?.gender);
+        setText('profile-bio', profile?.bio);
+
+        const interestsWrap = document.getElementById('profile-interests');
+        interestsWrap.replaceChildren();
+        (profile?.interests || []).forEach(i => {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = i;
+          interestsWrap.appendChild(chip);
+        });
+
+        const photosWrap = document.getElementById('profile-photos');
+        photosWrap.replaceChildren();
+        // Only avatar is stored persistently right now.
+        if (avatar) {
+          const photo = document.createElement('div');
+          photo.className = 'photo';
+          const img = document.createElement('img');
+          img.src = avatar;
+          img.alt = 'Photo 1';
+          photo.appendChild(img);
+          photosWrap.appendChild(photo);
+        }
+
+        loading.classList.add('hidden');
+        empty.classList.add('hidden');
+        content.classList.remove('hidden');
+      }
+
+      async function load(user) {
+        // Require login for profile page.
+        if (!user) {
+          window.location.href = 'login.html';
+          return;
+        }
+
+        // Fast path: cached (only for my profile)
+        if (!requestedUid && cachedProfile) {
+          try { render(JSON.parse(cachedProfile)); return; } catch (e) { /* ignore */ }
+        }
+
+
+        // Firestore fetch
+        try {
+          const uid = requestedUid || user.uid;
+          if (!uid) throw new Error('No user selected');
+
+          const doc = await db.collection('users').doc(uid).get();
+          if (doc.exists) {
+            const data = doc.data();
+
+            // Cache only if this is my profile
+            if (!requestedUid) {
+              localStorage.setItem('currentUserUid', uid);
+              localStorage.setItem('currentUserProfile', JSON.stringify(data));
+              if (data.avatarDataUrl) localStorage.setItem('currentUserAvatar', data.avatarDataUrl);
+            }
+
+            render(data);
+            return;
+          }
+        } catch (err) {
+          console.error('Profile fetch failed:', err);
+        }
+
+        loading.classList.add('hidden');
+        empty.classList.remove('hidden');
+        content.classList.add('hidden');
+      }
+
+      auth.onAuthStateChanged((user) => {
+        load(user);
+      });
+    })();
+  </script>
+</body>
+</html>
