@@ -50,7 +50,7 @@
   // ----------------------------
   const VALID_BRANCHES = {
     bt: 'Bio Technology',
-    ch: 'Chemical Engineering',
+    cm: 'Chemical Engineering',
     ce: 'Civil Engineering',
     cs: 'Computer Science and Engineering',
     cse: 'Computer Science and Engineering',

@@ -61,6 +61,17 @@ body {
   overflow-x: hidden;
 }
 
+/* Reserve space for fixed bottom nav when logged in */
+body.has-bottom-nav {
+  padding-bottom: 74px;
+}
+
+@supports(padding-bottom: env(safe-area-inset-bottom)) {
+  body.has-bottom-nav {
+    padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+}
+
 /* Container */
 .container {
   width: 100%;
@@ -438,6 +449,47 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
+}
+
+/* Cards used for suggested matches (homeDiscover.js) */
+.profile-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all var(--transition-base);
+  backdrop-filter: blur(10px);
+}
+
+.profile-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--primary-pink);
+  box-shadow: 0 20px 40px rgba(255, 107, 157, 0.18);
+}
+
+.profile-image {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1 / 1;
+}
+
+.profile-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-name {
+  padding: 1rem 1rem 0;
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+
+.profile-location {
+  padding: 0.4rem 1rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
 
 /* ==========================================
@@ -833,6 +885,65 @@ body {
 .btn-subscribe:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 30px rgba(255, 107, 157, 0.3);
+}
+
+/* ==========================================
+   INSTAGRAM-LIKE BOTTOM NAV
+   ========================================== */
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(26, 10, 30, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--card-border);
+  z-index: 1200;
+}
+
+.bottom-nav .bottom-nav-inner {
+  height: 64px;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+}
+
+.bottom-nav a {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 8px 6px;
+  border-radius: 14px;
+}
+
+.bottom-nav a .icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.bottom-nav a.active {
+  color: var(--text-primary);
+}
+
+.bottom-nav a.active .icon {
+  filter: drop-shadow(0 6px 16px rgba(255, 107, 157, 0.35));
+}
+
+.bottom-nav a:active {
+  transform: scale(0.98);
 }
 
 /* ==========================================

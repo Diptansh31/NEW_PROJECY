@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search - Find Your Valentine</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="authPrepaint.css" />
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="firebaseClient.js"></script>
+  <script>
+    (function () {
+      try {
+        var uid = localStorage.getItem('currentUserUid');
+        document.documentElement.dataset.auth = uid ? 'in' : 'out';
+      } catch (e) {
+        document.documentElement.dataset.auth = 'out';
+      }
+    })();
+  </script>
+
+  <style>
+    .page-wrap { padding: 22px 0 40px; }
+    .card { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 18px; backdrop-filter: blur(14px); }
+    .search-row { display:flex; gap: 10px; flex-wrap: wrap; }
+    .search-row input { flex: 1; min-width: 220px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color:#fff; }
+    .btn { padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.18); background: rgba(236,72,153,0.25); color:#fff; cursor:pointer; }
+    .grid { margin-top: 14px; display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .user-card { display:flex; gap:12px; align-items:center; padding: 14px; border-radius: 16px; background: rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(236,72,153,0.35); background: rgba(255,255,255,0.08); }
+    .meta { flex:1; min-width: 0; }
+    .meta .name { font-weight: 800; color:#fff; }
+    .meta .sub { font-size: 0.85rem; opacity: 0.85; color:#fff; margin-top: 2px; }
+    .pill { font-size: 0.75rem; padding: 6px 10px; border-radius: 999px; border:1px solid rgba(255,255,255,0.16); background: rgba(0,0,0,0.18); color:#fff; text-decoration:none; }
+    .error { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgba(127, 29, 29, 0.35); border: 1px solid rgba(255, 255, 255, 0.15); color: #fecaca; display:none; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-content">
+        <div class="logo">
+          <span class="logo-text">find your valentine</span>
+          <span class="logo-icon">❤</span>
+        </div>
+
+        <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+        </button>
+
+        <ul class="nav-menu" id="nav-menu">
+          <li><a href="index.html#home">Home</a></li>
+          <li><a href="index.html#members">Members</a></li>
+          <li><a href="index.html#how-it-works">How It Works</a></li>
+          <li><a href="index.html#stories">Stories</a></li>
+        </ul>
+
+        <div class="nav-actions" id="nav-actions">
+          <a href="login.html" class="btn-signup hidden" id="nav-get-started">Get Started</a>
+          <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
+            <img id="nav-profile-img" alt="Profile" src="https://via.placeholder.com/100?text=%F0%9F%91%A4" />
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-wrap">
+    <div class="container">
+      <div class="card">
+        <h2 style="margin:0;">Search</h2>
+        <p style="opacity:0.85; margin-top:6px;">Search users by their unique username.</p>
+
+        <div class="search-row" style="margin-top: 12px;">
+          <input id="q" placeholder="Search username (exact)" autocomplete="off" />
+          <button id="btn" class="btn" type="button">Search</button>
+        </div>
+
+        <div id="error" class="error"></div>
+        <div id="results" class="grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom nav (auth-only) -->
+  <nav class="bottom-nav hidden" id="bottom-nav" aria-label="Bottom navigation">
+    <div class="bottom-nav-inner">
+      <a href="index.html" data-tab="index.html"><span class="icon">🏠</span><span>Home</span></a>
+      <a href="search.html" data-tab="search.html"><span class="icon">🔍</span><span>Search</span></a>
+      <a href="chat.html" data-tab="chat.html"><span class="icon">💬</span><span>Chat</span></a>
+      <a href="profile.html" data-tab="profile.html"><span class="icon">👤</span><span>Profile</span></a>
+    </div>
+  </nav>
+
+  <script src="script.js"></script>
+  <script src="bottomNav.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const { auth, db } = window.FirebaseClient.initFirebase();
+      const q = document.getElementById('q');
+      const btn = document.getElementById('btn');
+      const results = document.getElementById('results');
+      const error = document.getElementById('error');
+
+      function setError(msg) {
+        if (!msg) { error.style.display = 'none'; error.textContent = ''; return; }
+        error.style.display = 'block'; error.textContent = msg;
+      }
+
+      function renderUser(uid, profile) {
+        results.replaceChildren();
+        const card = document.createElement('div');
+        card.className = 'user-card';
+
+        const img = document.createElement('img');
+        img.className = 'avatar';
+        img.src = profile.avatarDataUrl || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.innerHTML = `
+          <div class="name">${profile.fullName || '@' + (profile.username || 'user')}</div>
+          <div class="sub">@${profile.username || ''} • ${(profile.branchCode || profile.branch || '')}</div>
+        `;
+
+        const view = document.createElement('a');
+        view.className = 'pill';
+        view.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+        view.textContent = 'View';
+
+        card.appendChild(img);
+        card.appendChild(meta);
+        card.appendChild(view);
+        results.appendChild(card);
+      }
+
+      async function doSearch() {
+        setError('');
+        results.replaceChildren();
+        const user = auth.currentUser;
+        if (!user) { window.location.href = 'login.html'; return; }
+
+        const username = window.FirebaseClient.normalizeUsername(q.value);
+        if (!username) { setError('Enter a username'); return; }
+
+        const idx = await db.collection('usernames').doc(username).get();
+        if (!idx.exists) { setError('No user found'); return; }
+
+        const uid = idx.data().uid;
+        const snap = await db.collection('users').doc(uid).get();
+        if (!snap.exists) { setError('Profile missing'); return; }
+
+        renderUser(uid, snap.data());
+      }
+
+      btn.addEventListener('click', doSearch);
+      q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+
+      auth.onAuthStateChanged((user) => {
+        if (!user) window.location.href = 'login.html';
+      });
+    })();
+  </script>
+</body>
+</html>
