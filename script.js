@@ -14,21 +14,7 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
   });
 });
 
-// Heart button toggle
-document.querySelectorAll('.heart-btn').forEach(btn => {
-  btn.addEventListener('click', function(e) {
-    e.preventDefault();
-    if (this.textContent === '❤️') {
-      this.textContent = '🤍';
-    } else {
-      this.textContent = '❤️';
-    }
-    this.style.transform = 'scale(1.3)';
-    setTimeout(() => {
-      this.style.transform = 'scale(1)';
-    }, 200);
-  });
-});
+// Suggestions list uses row clicks; removed old demo heart button toggle.
 
 // Play button functionality for success stories
 document.querySelectorAll('.play-btn').forEach(btn => {
@@ -71,7 +57,7 @@ const observer = new IntersectionObserver((entries) => {
 
 // Observe elements for animation
 document.addEventListener('DOMContentLoaded', () => {
-  const animateElements = document.querySelectorAll('.profile-card, .step-card, .story-card');
+  const animateElements = document.querySelectorAll('.step-card, .story-card, .suggestion-row');
   
   animateElements.forEach(el => {
     el.style.opacity = '0';

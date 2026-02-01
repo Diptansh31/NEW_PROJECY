@@ -72,39 +72,49 @@
     }
 
     items.forEach(({ uid, profile }) => {
-      const card = document.createElement('div');
-      card.className = 'profile-card';
-
-      const imgWrap = document.createElement('div');
-      imgWrap.className = 'profile-image';
+      const row = document.createElement('div');
+      row.className = 'suggestion-row';
 
       const img = document.createElement('img');
-      img.src = profile.avatarDataUrl || 'https://via.placeholder.com/300?text=Avatar';
-      img.alt = 'Profile';
+      img.className = 'suggestion-avatar';
+      img.src = profile.avatarDataUrl || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
+      img.alt = 'Avatar';
 
-      const view = document.createElement('a');
-      view.href = `profile.html?uid=${encodeURIComponent(uid)}`;
-      view.className = 'heart-btn';
-      view.title = 'View profile';
-      view.textContent = '👁';
-      view.style.textDecoration = 'none';
+      const meta = document.createElement('div');
+      meta.className = 'suggestion-meta';
 
-      imgWrap.appendChild(img);
-      imgWrap.appendChild(view);
+      const username = document.createElement('a');
+      username.className = 'suggestion-username';
+      // show username primarily; fall back to fullName if no username
+      const uname = profile.username ? '@' + profile.username : (profile.fullName || 'User');
+      username.textContent = uname;
+      username.href = `profile.html?uid=${encodeURIComponent(uid)}`;
 
-      const name = document.createElement('h3');
-      name.className = 'profile-name';
-      name.textContent = profile.fullName || `@${profile.username || 'user'}`;
+      const sub = document.createElement('div');
+      sub.className = 'suggestion-sub';
+      sub.textContent = `${profile.branchCode || profile.branch || ''}`.trim();
 
-      const sub = document.createElement('p');
-      sub.className = 'profile-location';
-      sub.textContent = `${profile.branchCode || profile.branch || 'Branch'} • ${profile.collegeName || ''}`;
+      const action = document.createElement('a');
+      action.className = 'suggestion-action';
+      action.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+      action.textContent = 'View';
 
-      card.appendChild(imgWrap);
-      card.appendChild(name);
-      card.appendChild(sub);
+      meta.appendChild(username);
+      meta.appendChild(sub);
 
-      grid.appendChild(card);
+      // Make the whole row clickable too.
+      // If user clicks the username/action link, the default navigation will happen.
+      row.addEventListener('click', (e) => {
+        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (tag === 'a') return;
+        window.location.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+      });
+
+      row.appendChild(img);
+      row.appendChild(meta);
+      row.appendChild(action);
+
+      grid.appendChild(row);
     });
   }
 

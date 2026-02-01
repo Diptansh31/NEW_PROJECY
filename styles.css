@@ -451,45 +451,81 @@ body.has-bottom-nav {
   margin-top: 2rem;
 }
 
-/* Cards used for suggested matches (homeDiscover.js) */
-.profile-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: all var(--transition-base);
-  backdrop-filter: blur(10px);
+/* Compact suggestions list (homeDiscover.js) */
+.suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 1rem;
 }
 
-.profile-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--primary-pink);
-  box-shadow: 0 20px 40px rgba(255, 107, 157, 0.18);
+.suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  transition: transform var(--transition-base), background var(--transition-base), border-color var(--transition-base);
 }
 
-.profile-image {
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 1 / 1;
+.suggestion-row:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 107, 157, 0.35);
 }
 
-.profile-image img {
-  width: 100%;
-  height: 100%;
+.suggestion-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   object-fit: cover;
-  display: block;
+  border: 2px solid rgba(255, 107, 157, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;
 }
 
-.profile-name {
-  padding: 1rem 1rem 0;
+.suggestion-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestion-username {
+  color: var(--text-primary);
   font-weight: 800;
-  font-size: 1.15rem;
+  text-decoration: none;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.profile-location {
-  padding: 0.4rem 1rem 1rem;
+.suggestion-sub {
+  margin-top: 2px;
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-action {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .suggestion-row { padding: 10px; border-radius: 14px; }
+  .suggestion-avatar { width: 40px; height: 40px; }
+  .suggestion-sub { font-size: 0.85rem; }
 }
 
 /* ==========================================
