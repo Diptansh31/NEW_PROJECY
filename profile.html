@@ -13,6 +13,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="firebaseClient.js"></script>
+  <script src="socialGraph.js"></script>
   <script>
     (function () {
       try {
@@ -225,6 +226,13 @@
               <div class="profile-title" id="profile-name">-</div>
               <div class="profile-sub" id="profile-email">-</div>
               <div class="profile-sub" id="profile-subline">-</div>
+              <div class="profile-sub" style="margin-top:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <a href="friends.html" id="friends-link" class="suggestion-action" style="padding: 8px 12px;">Friends <strong id="profile-friends-count" style="margin-left:6px;">0</strong></a>
+              </div>
+              <div id="friend-actions" style="margin-top: 10px; display:none; gap:10px; flex-wrap:wrap;">
+                <button class="btn-search" id="btn-add-friend" type="button" style="border-radius: 999px;">Add Friend</button>
+                <button class="btn-search" id="btn-cancel-request" type="button" style="border-radius: 999px; background: rgba(255,255,255,0.12);">Cancel Request</button>
+              </div>
             </div>
           </div>
 
@@ -257,6 +265,11 @@
             <div id="profile-bio">-</div>
           </div>
 
+          <div id="incoming-requests" class="bio-box" style="display:none;">
+            <h3>Friend Requests</h3>
+            <div id="incoming-requests-list"></div>
+          </div>
+
           <div class="bio-box">
             <h3>Photos</h3>
             <p style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
@@ -282,7 +295,11 @@
   <script src="script.js"></script>
   <script src="bottomNav.js"></script>
   <script>
-    (function () { 
+    (function () {
+      // If user tries to open friends list while viewing someone else, force to own list.
+      // (Privacy default)
+      // friends.html already requires auth.
+ 
       'use strict';
 
       const { auth, db } = window.FirebaseClient.initFirebase();
@@ -294,6 +311,7 @@
       const params = new URLSearchParams(window.location.search);
       const requestedUid = params.get('uid');
       const profileLogoutBtn = document.getElementById('profile-logout');
+      const friendsLink = document.getElementById('friends-link');
 
       const cachedProfile = localStorage.getItem('currentUserProfile');
       const cachedUid = localStorage.getItem('currentUserUid');
@@ -303,10 +321,51 @@
         if (el) el.textContent = value || '-';
       }
 
-      function render(profile) {
+      function render(profile, ctx) {
         // Hide logout when viewing someone else's profile
         if (profileLogoutBtn) {
           profileLogoutBtn.classList.toggle('hidden', !!requestedUid);
+        }
+
+        // Only allow opening full friends list from my own profile
+        if (friendsLink) {
+          friendsLink.classList.toggle('hidden', !!requestedUid);
+        }
+
+        // Friend count
+        if (ctx && typeof ctx.friendCount === 'number') {
+          const c = document.getElementById('profile-friends-count');
+          if (c) c.textContent = String(ctx.friendCount);
+        }
+
+        // Friend request actions (only when viewing other profiles)
+        const actions = document.getElementById('friend-actions');
+        const btnAdd = document.getElementById('btn-add-friend');
+        const btnCancel = document.getElementById('btn-cancel-request');
+
+        const showActions = !!(ctx && ctx.isOtherProfile);
+        if (actions) actions.style.display = showActions ? 'flex' : 'none';
+
+        const state = ctx?.relationshipState || 'none';
+        const isFriends = state === 'friends';
+        const pendingOut = state === 'pending_outgoing';
+
+        if (btnAdd) {
+          btnAdd.classList.toggle('hidden', !showActions || pendingOut || isFriends);
+          btnAdd.textContent = isFriends ? 'Friends' : 'Add Friend';
+          btnAdd.disabled = isFriends;
+        }
+
+        if (btnCancel) btnCancel.classList.toggle('hidden', !showActions || !pendingOut);
+
+        // If already friends, show a simple badge instead of buttons
+        if (actions && isFriends) {
+          actions.style.display = 'flex';
+          actions.replaceChildren();
+          const badge = document.createElement('span');
+          badge.className = 'suggestion-action';
+          badge.textContent = 'Friends';
+          actions.appendChild(badge);
         }
 
         const avatar = profile?.avatarDataUrl || localStorage.getItem('currentUserAvatar') || 'https://via.placeholder.com/200?text=%F0%9F%91%A4';
@@ -356,31 +415,194 @@
           return;
         }
 
+        const viewingUid = requestedUid || user.uid;
+        const isOtherProfile = !!requestedUid && requestedUid !== user.uid;
+
         // Fast path: cached (only for my profile)
         if (!requestedUid && cachedProfile) {
-          try { render(JSON.parse(cachedProfile)); return; } catch (e) { /* ignore */ }
+          try {
+            const p = JSON.parse(cachedProfile);
+            // Still compute friend count, but render immediately for speed.
+            render(p, { isOtherProfile: false, friendCount: 0, relationshipState: 'none' });
+          } catch (e) { /* ignore */ }
         }
 
 
         // Firestore fetch
         try {
-          const uid = requestedUid || user.uid;
+          const uid = viewingUid;
           if (!uid) throw new Error('No user selected');
 
+          // Profile
           const doc = await db.collection('users').doc(uid).get();
-          if (doc.exists) {
-            const data = doc.data();
+          if (!doc.exists) throw new Error('Profile not found');
+          const data = doc.data();
 
-            // Cache only if this is my profile
-            if (!requestedUid) {
-              localStorage.setItem('currentUserUid', uid);
-              localStorage.setItem('currentUserProfile', JSON.stringify(data));
-              if (data.avatarDataUrl) localStorage.setItem('currentUserAvatar', data.avatarDataUrl);
-            }
-
-            render(data);
-            return;
+          // Friend count
+          let friendCount = 0;
+          try {
+            friendCount = await window.SocialGraph.getFriendCount(db, uid);
+          } catch (e) {
+            // ignore
           }
+
+          // Relationship state if viewing other user
+          let relationshipState = 'none';
+          if (isOtherProfile) {
+            try {
+              const rel = await window.SocialGraph.getRelationship(db, user.uid, uid);
+              relationshipState = rel?.state || 'none';
+            } catch (e) {
+              // ignore
+            }
+          }
+
+          // Cache only if this is my profile
+          if (!requestedUid) {
+            localStorage.setItem('currentUserUid', uid);
+            localStorage.setItem('currentUserProfile', JSON.stringify(data));
+            if (data.avatarDataUrl) localStorage.setItem('currentUserAvatar', data.avatarDataUrl);
+          }
+
+          render(data, { isOtherProfile, friendCount, relationshipState });
+
+          // Wire friend request buttons
+          const btnAdd = document.getElementById('btn-add-friend');
+          const btnCancel = document.getElementById('btn-cancel-request');
+
+          if (isOtherProfile && btnAdd && btnCancel && relationshipState !== 'friends') {
+            btnAdd.onclick = async () => {
+              btnAdd.disabled = true;
+              try {
+                await window.SocialGraph.sendFriendRequest(db, user.uid, uid);
+                // rerender buttons
+                btnAdd.classList.add('hidden');
+                btnCancel.classList.remove('hidden');
+              } finally {
+                btnAdd.disabled = false;
+              }
+            };
+
+            btnCancel.onclick = async () => {
+              btnCancel.disabled = true;
+              try {
+                await window.SocialGraph.cancelFriendRequest(db, user.uid, uid);
+                btnCancel.classList.add('hidden');
+                btnAdd.classList.remove('hidden');
+              } finally {
+                btnCancel.disabled = false;
+              }
+            };
+          }
+
+          // Incoming requests list (only on my profile)
+          const incomingWrap = document.getElementById('incoming-requests');
+          const incomingList = document.getElementById('incoming-requests-list');
+          if (!isOtherProfile && incomingWrap && incomingList) {
+            incomingWrap.style.display = 'block';
+            incomingList.replaceChildren();
+
+            const reqs = await window.SocialGraph.listIncomingRequests(db, user.uid);
+            if (!reqs.length) {
+              const p = document.createElement('div');
+              p.style.opacity = '0.85';
+              p.textContent = 'No pending requests.';
+              incomingList.appendChild(p);
+            } else {
+              for (const r of reqs) {
+                const row = document.createElement('div');
+                row.className = 'suggestion-row';
+
+                // Load sender basic profile
+                let sender = null;
+                try {
+                  const s = await db.collection('users').doc(r.fromUid).get();
+                  sender = s.exists ? s.data() : null;
+                } catch (e) {
+                  // ignore
+                }
+
+                const img = document.createElement('img');
+                img.className = 'suggestion-avatar';
+                img.src = sender?.avatarDataUrl || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
+
+                const meta = document.createElement('div');
+                meta.className = 'suggestion-meta';
+
+                const a = document.createElement('a');
+                a.className = 'suggestion-username';
+                a.href = `profile.html?uid=${encodeURIComponent(r.fromUid)}`;
+                a.textContent = sender?.username ? '@' + sender.username : (sender?.fullName || 'User');
+
+                const sub = document.createElement('div');
+                sub.className = 'suggestion-sub';
+                sub.textContent = 'wants to add you';
+
+                meta.appendChild(a);
+                meta.appendChild(sub);
+
+                const actions = document.createElement('div');
+                actions.style.display = 'flex';
+                actions.style.gap = '8px';
+
+                const accept = document.createElement('button');
+                accept.className = 'btn-search';
+                accept.type = 'button';
+                accept.textContent = 'Accept';
+                accept.style.borderRadius = '999px';
+
+                const decline = document.createElement('button');
+                decline.className = 'btn-search';
+                decline.type = 'button';
+                decline.textContent = 'Decline';
+                decline.style.borderRadius = '999px';
+                decline.style.background = 'rgba(255,255,255,0.12)';
+
+                accept.onclick = async () => {
+                  accept.disabled = true;
+                  try {
+                    await window.SocialGraph.acceptFriendRequest(db, r.fromUid, user.uid);
+                    row.remove();
+                    // refresh count from accepted requests
+                    try {
+                      const count = await window.SocialGraph.getFriendCount(db, user.uid);
+                      const c = document.getElementById('profile-friends-count');
+                      if (c) c.textContent = String(count);
+                    } catch (e) {
+                      // ignore
+                    }
+                  } catch (e) {
+                    alert(e?.message || String(e));
+                  } finally {
+                    accept.disabled = false;
+                  }
+                };
+
+                decline.onclick = async () => {
+                  decline.disabled = true;
+                  try {
+                    await window.SocialGraph.declineFriendRequest(db, r.fromUid, user.uid);
+                    row.remove();
+                  } catch (e) {
+                    alert(e?.message || String(e));
+                  } finally {
+                    decline.disabled = false;
+                  }
+                };
+
+                actions.appendChild(accept);
+                actions.appendChild(decline);
+
+                row.appendChild(img);
+                row.appendChild(meta);
+                row.appendChild(actions);
+
+                incomingList.appendChild(row);
+              }
+            }
+          }
+
+          return;
         } catch (err) {
           console.error('Profile fetch failed:', err);
         }

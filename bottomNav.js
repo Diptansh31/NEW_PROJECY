@@ -16,7 +16,8 @@
     const p = path();
     nav.querySelectorAll('[data-tab]').forEach(a => {
       const match = a.getAttribute('data-tab');
-      const active = match === p;
+      const alias = (p === 'friends.html') ? 'profile.html' : p;
+      const active = match === alias;
       a.classList.toggle('active', active);
       a.setAttribute('aria-current', active ? 'page' : 'false');
     });

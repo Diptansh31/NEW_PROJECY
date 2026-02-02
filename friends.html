@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Friends</title>
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="authPrepaint.css" />
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="firebaseClient.js"></script>
+  <script src="socialGraph.js"></script>
+
+  <script>
+    (function () {
+      try {
+        var uid = localStorage.getItem('currentUserUid');
+        document.documentElement.dataset.auth = uid ? 'in' : 'out';
+      } catch (e) {
+        document.documentElement.dataset.auth = 'out';
+      }
+    })();
+  </script>
+
+  <style>
+    .page-wrap { padding: 22px 0 40px; }
+    .card { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 18px; backdrop-filter: blur(14px); }
+    .title-row { display:flex; align-items:center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .hint { opacity: 0.85; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <div class="nav-content">
+        <div class="logo">
+          <span class="logo-text">find your valentine</span>
+          <span class="logo-icon">❤</span>
+        </div>
+
+        <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu">
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+          <span class="nav-toggle-bar"></span>
+        </button>
+
+        <ul class="nav-menu" id="nav-menu">
+          <li><a href="index.html#home">Home</a></li>
+          <li><a href="index.html#members">Members</a></li>
+          <li><a href="index.html#how-it-works">How It Works</a></li>
+          <li><a href="index.html#stories">Stories</a></li>
+        </ul>
+
+        <div class="nav-actions" id="nav-actions">
+          <a href="login.html" class="btn-signup hidden" id="nav-get-started">Get Started</a>
+          <a href="profile.html" class="nav-profile hidden" id="nav-profile" aria-label="Profile">
+            <img id="nav-profile-img" alt="Profile" src="https://via.placeholder.com/100?text=%F0%9F%91%A4" />
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page-wrap">
+    <div class="container">
+      <div class="card">
+        <div class="title-row">
+          <div>
+            <h2 style="margin:0;">Friends</h2>
+            <div class="hint" id="friends-sub">Your connections</div>
+          </div>
+          <a href="profile.html" class="suggestion-action">Back to Profile</a>
+        </div>
+
+        <div style="margin-top: 14px;" id="friends-list" class="suggestions-list"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom nav (auth-only) -->
+  <nav class="bottom-nav hidden" id="bottom-nav" aria-label="Bottom navigation">
+    <div class="bottom-nav-inner">
+      <a href="index.html" data-tab="index.html"><span class="icon">🏠</span><span>Home</span></a>
+      <a href="search.html" data-tab="search.html"><span class="icon">🔍</span><span>Search</span></a>
+      <a href="chat.html" data-tab="chat.html"><span class="icon">💬</span><span>Chat</span></a>
+      <a href="profile.html" data-tab="profile.html"><span class="icon">👤</span><span>Profile</span></a>
+    </div>
+  </nav>
+
+  <script src="script.js"></script>
+  <script src="bottomNav.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const { auth, db } = window.FirebaseClient.initFirebase();
+      const listEl = document.getElementById('friends-list');
+      const subEl = document.getElementById('friends-sub');
+
+      function render(items) {
+        listEl.replaceChildren();
+        if (!items.length) {
+          const empty = document.createElement('div');
+          empty.style.opacity = '0.85';
+          empty.textContent = 'No friends yet.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        for (const { uid, profile } of items) {
+          const row = document.createElement('div');
+          row.className = 'suggestion-row';
+
+          const img = document.createElement('img');
+          img.className = 'suggestion-avatar';
+          img.src = profile?.avatarDataUrl || 'https://via.placeholder.com/100?text=%F0%9F%91%A4';
+          img.alt = 'Avatar';
+
+          const meta = document.createElement('div');
+          meta.className = 'suggestion-meta';
+
+          const username = document.createElement('a');
+          username.className = 'suggestion-username';
+          username.textContent = profile?.username ? '@' + profile.username : (profile?.fullName || 'User');
+          username.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+
+          const sub = document.createElement('div');
+          sub.className = 'suggestion-sub';
+          sub.textContent = `${profile?.branchCode || profile?.branch || ''}`.trim();
+
+          meta.appendChild(username);
+          meta.appendChild(sub);
+
+          const view = document.createElement('a');
+          view.className = 'suggestion-action';
+          view.textContent = 'View';
+          view.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+
+          row.addEventListener('click', (e) => {
+            const tag = e.target?.tagName?.toLowerCase();
+            if (tag === 'a') return;
+            window.location.href = `profile.html?uid=${encodeURIComponent(uid)}`;
+          });
+
+          row.appendChild(img);
+          row.appendChild(meta);
+          row.appendChild(view);
+          listEl.appendChild(row);
+        }
+      }
+
+      auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          window.location.href = 'login.html';
+          return;
+        }
+
+        const items = await window.SocialGraph.listFriends(db, user.uid);
+        subEl.textContent = `${items.length} friend(s)`;
+        // sort by username
+        items.sort((a, b) => String(a.profile?.username || '').localeCompare(String(b.profile?.username || '')));
+        render(items);
+      });
+    })();
+  </script>
+</body>
+</html>

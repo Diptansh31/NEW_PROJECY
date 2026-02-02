@@ -178,11 +178,20 @@
       .where('collegeName', '==', me.collegeName)
       .limit(120);
 
+    // Build friend set to exclude already-friends from suggestions
+    let friendSet = new Set();
+    try {
+      friendSet = await window.SocialGraph.getFriendUidSet(db, user.uid);
+    } catch (e) {
+      // ignore
+    }
+
     const snap = await q.get();
 
     const candidates = [];
     snap.forEach(doc => {
       if (doc.id === user.uid) return;
+      if (friendSet.has(doc.id)) return; // don't suggest existing friends
       const profile = doc.data();
       const { score, shared } = scoreCandidate(me, profile);
       candidates.push({ uid: doc.id, profile, score, shared });
