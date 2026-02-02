@@ -7,6 +7,14 @@ import 'app_user.dart';
 class LocalAuthController extends ChangeNotifier {
   final Map<String, _AccountRecord> _accountsByEmail = {};
 
+  /// Returns all known users (signed up in this session).
+  ///
+  /// This is UI-only state for prototyping. A real app would fetch this from
+  /// a backend.
+  List<AppUser> get allUsers => _accountsByEmail.values.map((e) => e.user).toList(growable: false);
+
+  AppUser? userByEmail(String email) => _accountsByEmail[email.trim().toLowerCase()]?.user;
+
   AppUser? _currentUser;
   AppUser? get currentUser => _currentUser;
 

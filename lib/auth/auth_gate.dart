@@ -4,10 +4,13 @@ import '../ui/app_shell.dart';
 import 'local_auth_controller.dart';
 import '../ui/auth/login_page.dart';
 
+import '../social/social_graph_controller.dart';
+
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key, required this.controller});
+  const AuthGate({super.key, required this.controller, required this.social});
 
   final LocalAuthController controller;
+  final SocialGraphController social;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +25,8 @@ class AuthGate extends StatelessWidget {
         return AppShell(
           signedInEmail: user.email,
           onSignOut: controller.signOut,
+          auth: controller,
+          social: social,
         );
       },
     );

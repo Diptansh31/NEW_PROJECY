@@ -6,15 +6,22 @@ import 'pages/feed_page.dart';
 import 'pages/messages_page.dart';
 import 'pages/profile_page.dart';
 
+import '../auth/local_auth_controller.dart';
+import '../social/social_graph_controller.dart';
+
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
     required this.signedInEmail,
     required this.onSignOut,
+    required this.auth,
+    required this.social,
   });
 
   final String signedInEmail;
   final VoidCallback onSignOut;
+  final LocalAuthController auth;
+  final SocialGraphController social;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -105,7 +112,11 @@ class _AppShellState extends State<AppShell> {
       case 0:
         return const FeedPage();
       case 1:
-        return const DiscoverPage();
+        return DiscoverPage(
+          signedInEmail: widget.signedInEmail,
+          auth: widget.auth,
+          social: widget.social,
+        );
       case 2:
         return const MessagesPage();
       case 3:
