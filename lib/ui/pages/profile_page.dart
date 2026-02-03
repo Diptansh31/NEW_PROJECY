@@ -5,8 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../../auth/firebase_auth_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
+import '../../posts/firestore_posts_controller.dart';
+import '../../posts/post_models.dart';
 import '../widgets/async_action.dart';
 import 'friends_list_page.dart';
+import 'my_post_detail_page.dart';
+import 'post_image_widget.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({
@@ -16,6 +20,7 @@ class ProfilePage extends StatelessWidget {
     required this.onSignOut,
     required this.auth,
     required this.social,
+    required this.posts,
   });
 
   final String signedInUid;
@@ -23,6 +28,7 @@ class ProfilePage extends StatelessWidget {
   final VoidCallback onSignOut;
   final FirebaseAuthController auth;
   final FirestoreSocialGraphController social;
+  final FirestorePostsController posts;
 
   @override
   Widget build(BuildContext context) {
@@ -162,27 +168,47 @@ class ProfilePage extends StatelessWidget {
             const SizedBox(height: 12),
 
             _SectionCard(
-              title: 'Highlights',
-              child: Column(
-                children: const [
-                  ListTile(
-                    leading: Icon(Icons.favorite_border),
-                    title: Text('Matches'),
-                    subtitle: Text('0 (placeholder)'),
-                  ),
-                  Divider(height: 1),
-                  ListTile(
-                    leading: Icon(Icons.photo_library_outlined),
-                    title: Text('Posts'),
-                    subtitle: Text('0 (placeholder)'),
-                  ),
-                  Divider(height: 1),
-                  ListTile(
-                    leading: Icon(Icons.groups_outlined),
-                    title: Text('Groups'),
-                    subtitle: Text('0 (placeholder)'),
-                  ),
-                ],
+              title: 'Your posts',
+              child: StreamBuilder<List<Post>>(
+                stream: posts.userPostsStream(uid: signedInUid),
+                builder: (context, snap) {
+                  if (snap.hasError) {
+                    return Text('Failed to load posts: ${snap.error}');
+                  }
+                  if (!snap.hasData) {
+                    return const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()));
+                  }
+
+                  final items = snap.data!;
+                  if (items.isEmpty) {
+                    return const Text('No posts yet. Create one from the Feed tab.');
+                  }
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 6,
+                    ),
+                    itemBuilder: (context, index) {
+                      final p = items[index];
+                      return InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => MyPostDetailPage(post: p)),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: PostImage(post: p),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
             const SizedBox(height: 12),

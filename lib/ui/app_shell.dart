@@ -162,6 +162,7 @@ class _AppShellState extends State<AppShell> {
           onSignOut: widget.onSignOut,
           auth: widget.auth,
           social: widget.social,
+          posts: widget.posts,
         );
       default:
         return FeedPage(
