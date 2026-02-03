@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// Small helper widget for consistent friend/request button states.
@@ -15,8 +17,8 @@ class FriendActionButton extends StatelessWidget {
   final bool areFriends;
   final bool hasOutgoing;
   final bool hasIncoming;
-  final VoidCallback onAdd;
-  final VoidCallback onAccept;
+  final Future<void> Function() onAdd;
+  final Future<void> Function() onAccept;
   final bool dense;
 
   @override
@@ -31,7 +33,7 @@ class FriendActionButton extends StatelessWidget {
 
     if (hasIncoming) {
       return FilledButton.icon(
-        onPressed: onAccept,
+        onPressed: () async => onAccept(),
         icon: const Icon(Icons.person_add_alt_1),
         label: Text(dense ? 'Accept' : 'Accept request'),
       );
@@ -46,7 +48,7 @@ class FriendActionButton extends StatelessWidget {
     }
 
     return FilledButton.icon(
-      onPressed: onAdd,
+      onPressed: () async => onAdd(),
       icon: const Icon(Icons.person_add),
       label: Text(dense ? 'Add' : 'Add friend'),
     );

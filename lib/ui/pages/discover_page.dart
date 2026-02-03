@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../../auth/app_user.dart';
 import '../../auth/firebase_auth_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
+import '../widgets/async_error_view.dart';
+import '../widgets/async_action.dart';
 import 'friend_action_button.dart';
 import 'user_profile_page.dart';
 
@@ -40,13 +42,11 @@ class DiscoverPage extends StatelessWidget {
               children: [
                 _SwipeDiscover(
                   signedInUid: signedInUid,
-                  signedInEmail: signedInEmail,
                   auth: auth,
                   social: social,
                 ),
                 _BrowseDiscover(
                   signedInUid: signedInUid,
-                  signedInEmail: signedInEmail,
                   auth: auth,
                   social: social,
                 ),
@@ -62,13 +62,11 @@ class DiscoverPage extends StatelessWidget {
 class _SwipeDiscover extends StatefulWidget {
   const _SwipeDiscover({
     required this.signedInUid,
-    required this.signedInEmail,
     required this.auth,
     required this.social,
   });
 
   final String signedInUid;
-  final String signedInEmail;
   final FirebaseAuthController auth;
   final FirestoreSocialGraphController social;
 
@@ -92,11 +90,14 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
     return FutureBuilder<List<AppUser>>(
       future: widget.auth.getAllUsers(),
       builder: (context, snapshot) {
-        final all = snapshot.data;
-        if (all == null) {
+        if (snapshot.hasError) {
+          return AsyncErrorView(error: snapshot.error!);
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
 
+        final all = snapshot.data ?? const <AppUser>[];
         final candidates = all.where((u) => u.uid != widget.signedInUid).toList(growable: false);
         candidates.sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
 
@@ -109,10 +110,14 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
         return StreamBuilder<FriendStatus>(
           stream: widget.social.friendStatusStream(myUid: widget.signedInUid, otherUid: u.uid),
           builder: (context, statusSnap) {
-            final status = statusSnap.data;
-            if (status == null) {
+            if (statusSnap.hasError) {
+              return AsyncErrorView(error: statusSnap.error!);
+            }
+            if (!statusSnap.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
+
+            final status = statusSnap.data!;
 
             return ListView(
               padding: const EdgeInsets.all(16),
@@ -156,9 +161,7 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
                                     backgroundImage: u.profileImageBytes == null
                                         ? null
                                         : MemoryImage(Uint8List.fromList(u.profileImageBytes!)),
-                                    child: u.profileImageBytes == null
-                                        ? const Icon(Icons.person, size: 54)
-                                        : null,
+                                    child: u.profileImageBytes == null ? const Icon(Icons.person, size: 54) : null,
                                   ),
                                 ),
                               ),
@@ -171,9 +174,7 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
                             const SizedBox(height: 4),
                             Text(
                               u.gender.label,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                             ),
                             const SizedBox(height: 12),
                             Text(u.bio.isEmpty ? 'No bio yet.' : u.bio),
@@ -193,14 +194,20 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
                                     areFriends: status.areFriends,
                                     hasOutgoing: status.hasOutgoingRequest,
                                     hasIncoming: status.hasIncomingRequest,
-                                    onAdd: () => widget.social.sendRequest(
-                                      fromUid: widget.signedInUid,
-                                      toUid: u.uid,
-                                    ),
-                                    onAccept: () => widget.social.acceptIncoming(
-                                      toUid: widget.signedInUid,
-                                      fromUid: u.uid,
-                                    ),
+                                    onAdd: () => runAsyncAction(
+                                          context,
+                                          () => widget.social.sendRequest(
+                                            fromUid: widget.signedInUid,
+                                            toUid: u.uid,
+                                          ),
+                                        ),
+                                    onAccept: () => runAsyncAction(
+                                          context,
+                                          () => widget.social.acceptIncoming(
+                                            toUid: widget.signedInUid,
+                                            fromUid: u.uid,
+                                          ),
+                                        ),
                                   ),
                                 ),
                               ],
@@ -239,13 +246,11 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
 class _BrowseDiscover extends StatelessWidget {
   const _BrowseDiscover({
     required this.signedInUid,
-    required this.signedInEmail,
     required this.auth,
     required this.social,
   });
 
   final String signedInUid;
-  final String signedInEmail;
   final FirebaseAuthController auth;
   final FirestoreSocialGraphController social;
 
@@ -254,11 +259,14 @@ class _BrowseDiscover extends StatelessWidget {
     return FutureBuilder<List<AppUser>>(
       future: auth.getAllUsers(),
       builder: (context, snapshot) {
-        final all = snapshot.data;
-        if (all == null) {
+        if (snapshot.hasError) {
+          return AsyncErrorView(error: snapshot.error!);
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
 
+        final all = snapshot.data ?? const <AppUser>[];
         final users = all.where((u) => u.uid != signedInUid).toList(growable: false);
         users.sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
 
@@ -317,10 +325,13 @@ class _BrowseTile extends StatelessWidget {
     return StreamBuilder<FriendStatus>(
       stream: social.friendStatusStream(myUid: currentUid, otherUid: user.uid),
       builder: (context, snap) {
-        final s = snap.data;
-        if (s == null) {
+        if (snap.hasError) {
+          return AsyncErrorView(error: snap.error!);
+        }
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
+        final s = snap.data!;
 
         return Card(
           elevation: 0,
@@ -381,8 +392,14 @@ class _BrowseTile extends StatelessWidget {
                       areFriends: s.areFriends,
                       hasOutgoing: s.hasOutgoingRequest,
                       hasIncoming: s.hasIncomingRequest,
-                      onAdd: () => social.sendRequest(fromUid: currentUid, toUid: user.uid),
-                      onAccept: () => social.acceptIncoming(toUid: currentUid, fromUid: user.uid),
+                      onAdd: () => runAsyncAction(
+                            context,
+                            () => social.sendRequest(fromUid: currentUid, toUid: user.uid),
+                          ),
+                      onAccept: () => runAsyncAction(
+                            context,
+                            () => social.acceptIncoming(toUid: currentUid, fromUid: user.uid),
+                          ),
                       dense: true,
                     ),
                   ),

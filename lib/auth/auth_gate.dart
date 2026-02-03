@@ -28,9 +28,16 @@ class AuthGate extends StatelessWidget {
         return FutureBuilder(
           future: controller.getCurrentProfile(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Failed to load profile: ${snapshot.error}'));
+            }
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
             final profile = snapshot.data;
             if (profile == null) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: Text('Profile not found in Firestore.'));
             }
 
             return AppShell(

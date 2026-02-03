@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
 import '../../social/firestore_social_graph_controller.dart';
+import '../widgets/async_action.dart';
 
 class UserProfilePage extends StatelessWidget {
   const UserProfilePage({
@@ -93,10 +94,22 @@ class UserProfilePage extends StatelessWidget {
 
               return _ActionCard(
                 status: s,
-                onAdd: () => social.sendRequest(fromUid: currentUserUid, toUid: user.uid),
-                onCancel: () => social.cancelOutgoing(fromUid: currentUserUid, toUid: user.uid),
-                onAccept: () => social.acceptIncoming(toUid: currentUserUid, fromUid: user.uid),
-                onDecline: () => social.declineIncoming(toUid: currentUserUid, fromUid: user.uid),
+                onAdd: () => runAsyncAction(
+                      context,
+                      () => social.sendRequest(fromUid: currentUserUid, toUid: user.uid),
+                    ),
+                onCancel: () => runAsyncAction(
+                      context,
+                      () => social.cancelOutgoing(fromUid: currentUserUid, toUid: user.uid),
+                    ),
+                onAccept: () => runAsyncAction(
+                      context,
+                      () => social.acceptIncoming(toUid: currentUserUid, fromUid: user.uid),
+                    ),
+                onDecline: () => runAsyncAction(
+                      context,
+                      () => social.declineIncoming(toUid: currentUserUid, fromUid: user.uid),
+                    ),
               );
             },
           ),

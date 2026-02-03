@@ -60,13 +60,13 @@ class ProfilePage extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _SectionCard(
-          title: 'Social',
+          title: 'Friends',
           child: Column(
             children: [
               ListTile(
                 leading: const Icon(Icons.person_add_alt_1),
                 title: const Text('Friend requests'),
-                subtitle: const Text('Accept/decline requests and view pending'),
+                subtitle: const Text('Your incoming and outgoing requests'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   final me = await auth.publicProfileByUid(signedInUid);
@@ -101,7 +101,7 @@ class ProfilePage extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   Chip(label: Text('CSE')),
-                  Chip(label: Text('2nd year')),
+                  Chip(label: Text('1st year')),
                   Chip(label: Text('Hostel: H-5')),
                   Chip(label: Text('Interests: Music, Travel')),
                 ],

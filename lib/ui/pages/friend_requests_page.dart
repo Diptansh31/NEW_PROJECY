@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../auth/app_user.dart';
 import '../../auth/firebase_auth_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
+import '../widgets/async_action.dart';
 
 class FriendRequestsPage extends StatelessWidget {
   const FriendRequestsPage({
@@ -70,11 +71,17 @@ class FriendRequestsPage extends StatelessWidget {
                               spacing: 8,
                               children: [
                                 OutlinedButton(
-                                  onPressed: () => social.declineIncoming(toUid: currentUser.uid, fromUid: r.fromUid),
+                                  onPressed: () async => runAsyncAction(
+                                      context,
+                                      () => social.declineIncoming(toUid: currentUser.uid, fromUid: r.fromUid),
+                                    ),
                                   child: const Text('Decline'),
                                 ),
                                 FilledButton(
-                                  onPressed: () => social.acceptIncoming(toUid: currentUser.uid, fromUid: r.fromUid),
+                                  onPressed: () async => runAsyncAction(
+                                      context,
+                                      () => social.acceptIncoming(toUid: currentUser.uid, fromUid: r.fromUid),
+                                    ),
                                   child: const Text('Accept'),
                                 ),
                               ],
@@ -119,7 +126,10 @@ class FriendRequestsPage extends StatelessWidget {
                             title: Text(u?.username ?? r.toUid),
                             subtitle: Text(u?.email ?? ''),
                             trailing: OutlinedButton(
-                              onPressed: () => social.cancelOutgoing(fromUid: currentUser.uid, toUid: r.toUid),
+                              onPressed: () async => runAsyncAction(
+                                context,
+                                () => social.cancelOutgoing(fromUid: currentUser.uid, toUid: r.toUid),
+                              ),
                               child: const Text('Cancel'),
                             ),
                           ),
