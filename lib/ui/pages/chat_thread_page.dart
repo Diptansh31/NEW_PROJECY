@@ -14,6 +14,7 @@ class ChatThreadPage extends StatefulWidget {
     required this.thread,
     required this.chat,
     required this.social,
+    this.isMatchChat = false,
   });
 
   final AppUser currentUser;
@@ -21,6 +22,7 @@ class ChatThreadPage extends StatefulWidget {
   final FirestoreChatThread thread;
   final FirestoreChatController chat;
   final FirestoreSocialGraphController social;
+  final bool isMatchChat;
 
   @override
   State<ChatThreadPage> createState() => _ChatThreadPageState();
@@ -48,168 +50,193 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         }
 
         final areFriends = friends.contains(widget.otherUser.uid);
+        final isMatch = widget.isMatchChat;
+        final canChat = areFriends || isMatch;
+
+        final theme = Theme.of(context);
+        final love = theme.colorScheme.secondary;
+        final loveSoft = love.withValues(alpha: 0.14);
 
         return Scaffold(
-          appBar: AppBar(title: Text(widget.otherUser.username)),
-          body: Column(
-            children: [
-              if (!areFriends)
-                MaterialBanner(
-                  content: const Text('You can only chat with friends. Send/accept a friend request first.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text('OK'),
+          appBar: AppBar(
+            title: Row(
+              children: [
+                if (isMatch) ...[
+                  Icon(Icons.favorite, color: love),
+                  const SizedBox(width: 8),
+                ],
+                Text(widget.otherUser.username),
+              ],
+            ),
+          ),
+          body: DecoratedBox(
+            decoration: isMatch
+                ? BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [loveSoft, theme.colorScheme.surface],
                     ),
-                  ],
-                ),
-              Expanded(
-                child: StreamBuilder<List<FirestoreMessage>>(
-                  stream: widget.chat.messagesStream(threadId: widget.thread.id),
-                  builder: (context, snap) {
-                    final messages = snap.data;
-                    if (messages == null) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                  )
+                : const BoxDecoration(),
+            child: Column(
+              children: [
+                if (!canChat)
+                  MaterialBanner(
+                    content: const Text('You can only chat with friends. Send/accept a friend request first.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                Expanded(
+                  child: StreamBuilder<List<FirestoreMessage>>(
+                    stream: widget.chat.messagesStream(threadId: widget.thread.id),
+                    builder: (context, snap) {
+                      final messages = snap.data;
+                      if (messages == null) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      reverse: true,
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final m = messages[messages.length - 1 - index];
-                        final isMe = m.fromUid == widget.currentUser.uid;
-                        final text = widget.chat.displayText(m);
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        reverse: true,
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final m = messages[messages.length - 1 - index];
+                          final isMe = m.fromUid == widget.currentUser.uid;
+                          final text = widget.chat.displayText(m);
 
-                        return Align(
-                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 520),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onLongPress: () {
-                                setState(() {
-                                  _replyTo = m;
-                                });
-                              },
-                              child: Card(
-                                elevation: 0,
-                                color: isMe
-                                    ? Theme.of(context).colorScheme.primaryContainer
-                                    : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (m.replyToText != null)
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          margin: const EdgeInsets.only(bottom: 8),
-                                          decoration: BoxDecoration(
-                                            border: Border(
-                                              left: BorderSide(
-                                                color: Theme.of(context).colorScheme.primary,
-                                                width: 3,
+                          final myBubble = isMatch
+                              ? theme.colorScheme.secondary.withValues(alpha: 0.25)
+                              : theme.colorScheme.primaryContainer;
+                          final otherBubble = isMatch
+                              ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.65)
+                              : theme.colorScheme.surfaceContainerHighest;
+
+                          return Align(
+                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 520),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onLongPress: () => setState(() => _replyTo = m),
+                                child: Card(
+                                  elevation: 0,
+                                  color: isMe ? myBubble : otherBubble,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (m.replyToText != null)
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            margin: const EdgeInsets.only(bottom: 8),
+                                            decoration: BoxDecoration(
+                                              border: Border(
+                                                left: BorderSide(
+                                                  color: theme.colorScheme.primary,
+                                                  width: 3,
+                                                ),
                                               ),
                                             ),
+                                            child: Text(
+                                              m.replyToText!,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: theme.textTheme.bodySmall,
+                                            ),
                                           ),
-                                          child: Text(
-                                            m.replyToText!,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context).textTheme.bodySmall,
-                                          ),
-                                        ),
-                                      Text(text),
-                                    ],
+                                        Text(text),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_replyTo != null)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Replying',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(fontWeight: FontWeight.w800),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      widget.chat.displayText(_replyTo!),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => setState(() => _replyTo = null),
-                                icon: const Icon(Icons.close),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Row(
-                        children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          enabled: areFriends,
-                          decoration: const InputDecoration(
-                            hintText: 'Message…',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          minLines: 1,
-                          maxLines: 4,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: areFriends ? (_) => _send() : null,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        onPressed: areFriends ? _send : null,
-                        icon: const Icon(Icons.send),
-                      ),
-                        ],
-                      ),
-                    ],
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
-              ),
-            ],
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_replyTo != null)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: theme.colorScheme.outlineVariant),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Replying',
+                                        style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        widget.chat.displayText(_replyTo!),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => setState(() => _replyTo = null),
+                                  icon: const Icon(Icons.close),
+                                ),
+                              ],
+                            ),
+                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                enabled: canChat,
+                                decoration: const InputDecoration(
+                                  hintText: 'Message…',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                minLines: 1,
+                                maxLines: 4,
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: canChat ? (_) => _send() : null,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filled(
+                              onPressed: canChat ? _send : null,
+                              icon: const Icon(Icons.send),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

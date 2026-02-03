@@ -50,19 +50,31 @@ class _SwipeDiscover extends StatefulWidget {
 }
 
 class _SwipeDiscoverState extends State<_SwipeDiscover> {
+  final Set<String> _swipedUids = <String>{};
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<AppUser>>(
-      future: widget.auth.getAllUsers(),
-      builder: (context, userSnap) {
-        if (userSnap.hasError) {
-          return AsyncErrorView(error: userSnap.error!);
+    return FutureBuilder<(AppUser?, List<AppUser>)>(
+      future: () async {
+        final me = await widget.auth.publicProfileByUid(widget.signedInUid);
+        final all = await widget.auth.getAllUsers();
+        return (me, all);
+      }(),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return AsyncErrorView(error: snap.error!);
         }
-        if (userSnap.connectionState != ConnectionState.done) {
+        if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final all = userSnap.data ?? const <AppUser>[];
+        final me = snap.data!.$1;
+        final all = snap.data!.$2;
+
+        final myInterests = (me?.interests ?? const <String>[])
+            .map((e) => e.trim().toLowerCase())
+            .where((e) => e.isNotEmpty)
+            .toSet();
 
         return StreamBuilder<Set<String>>(
           stream: widget.social.friendsStream(uid: widget.signedInUid),
@@ -75,15 +87,59 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
             }
 
             final friends = friendsSnap.data!;
+
+            bool oppositeGender(AppUser u) {
+              // Enforce opposite gender only for male<->female. For other values,
+              // we don't filter (since there isn't a single "opposite").
+              final g = me?.gender;
+              if (g == Gender.male) return u.gender == Gender.female;
+              if (g == Gender.female) return u.gender == Gender.male;
+              return true;
+            }
+
             final candidates = all
-                .where((u) => u.uid != widget.signedInUid && !friends.contains(u.uid))
+                .where((u) =>
+                    u.uid != widget.signedInUid &&
+                    !friends.contains(u.uid) &&
+                    !_swipedUids.contains(u.uid) &&
+                    oppositeGender(u))
                 .toList(growable: false);
 
-            // Add a bit of randomness so it feels more like a matching deck.
-            candidates.shuffle(Random());
+            // Compute mutual interests.
+            final mutualByUid = <String, List<String>>{};
+            int mutualCount(AppUser u) {
+              if (myInterests.isEmpty) return 0;
+              final theirs = u.interests
+                  .map((e) => e.trim().toLowerCase())
+                  .where((e) => e.isNotEmpty)
+                  .toSet();
+              final mutual = myInterests.intersection(theirs).toList()..sort();
+
+              // Keep nicer display capitalization (original strings) if possible.
+              final display = <String>[];
+              for (final m in mutual) {
+                final original = u.interests.firstWhere(
+                  (x) => x.trim().toLowerCase() == m,
+                  orElse: () => m,
+                );
+                display.add(original);
+              }
+              mutualByUid[u.uid] = display;
+              return mutual.length;
+            }
+
+            // Sort by mutual interest count (desc). Tie-break with randomness so the deck stays fresh.
+            final rnd = Random();
+            candidates.sort((a, b) {
+              final am = mutualCount(a);
+              final bm = mutualCount(b);
+              if (am != bm) return bm.compareTo(am);
+              return rnd.nextBool() ? 1 : -1;
+            });
 
             return SwipeDeck(
               users: candidates,
+              mutualInterestsByUid: mutualByUid,
               onViewProfile: (u) {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -96,8 +152,20 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
                 );
               },
               onSwipe: (u, action) async {
+                // Immediately mark as swiped so it doesn't re-appear on rebuild.
+                if (mounted) {
+                  setState(() => _swipedUids.add(u.uid));
+                }
+
+                // Persist swipe decision (prevents repeats across sessions once rules allow).
+                await widget.social.recordSwipe(
+                  uid: widget.signedInUid,
+                  otherUid: u.uid,
+                  decision: action == SwipeAction.like ? SwipeDecision.like : SwipeDecision.nope,
+                );
+
                 if (action == SwipeAction.like) {
-                  await widget.social.sendRequest(fromUid: widget.signedInUid, toUid: u.uid);
+                  await widget.social.sendMatchRequest(fromUid: widget.signedInUid, toUid: u.uid);
                 }
                 // action == nope: no-op for now
               },

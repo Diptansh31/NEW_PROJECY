@@ -167,6 +167,16 @@ class FirebaseAuthController extends ChangeNotifier {
     });
   }
 
+  /// Stream the uid of the current user's active match (if any).
+  ///
+  /// Expected field: users/{uid}.activeMatchWithUid (string|null)
+  Stream<String?> activeMatchWithUidStream(String uid) {
+    return _db.collection('users').doc(uid).snapshots().map((doc) {
+      final data = doc.data();
+      return data?['activeMatchWithUid'] as String?;
+    });
+  }
+
   Future<void> updateProfileImage({required String uid, required List<int> bytes}) async {
     await _db.collection('users').doc(uid).set({
       'profileImageB64': base64Encode(bytes),

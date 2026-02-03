@@ -39,7 +39,7 @@ class _MessagesPageState extends State<MessagesPage> {
 
   Future<AppUser?> get _currentUser async => widget.auth.getUserByEmail(widget.signedInEmail);
 
-  Future<void> _openChatWith({required AppUser current, required AppUser other}) async {
+  Future<void> _openChatWith({required AppUser current, required AppUser other, bool isMatchChat = false}) async {
     final thread = await widget.chat.getOrCreateThread(
       myUid: current.uid,
       myEmail: current.email,
@@ -57,6 +57,7 @@ class _MessagesPageState extends State<MessagesPage> {
           thread: thread,
           chat: widget.chat,
           social: widget.social,
+          isMatchChat: isMatchChat,
         ),
       ),
     );
@@ -132,6 +133,42 @@ class _MessagesPageState extends State<MessagesPage> {
                                 ),
                             const SizedBox(height: 16),
                           ],
+
+                          StreamBuilder<String?>(
+                            stream: widget.auth.activeMatchWithUidStream(currentUser.uid),
+                            builder: (context, matchSnap) {
+                              final matchUid = matchSnap.data;
+                              if (matchUid == null || matchUid.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+
+                              final matchUser = allUsers.where((u) => u.uid == matchUid).cast<AppUser?>().firstOrNull;
+                              if (matchUser == null) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Card(
+                                  elevation: 0,
+                                  child: ListTile(
+                                    leading: const CircleAvatar(child: Icon(Icons.favorite)),
+                                    title: Text(
+                                      'Your Match · ${matchUser.username}',
+                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                                    ),
+                                    subtitle: Text(
+                                      'Pinned',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: () => _openChatWith(current: currentUser, other: matchUser, isMatchChat: true),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
 
                           Text('Conversations',
                               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),

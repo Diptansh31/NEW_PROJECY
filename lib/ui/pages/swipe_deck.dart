@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -17,9 +16,14 @@ class SwipeDeck extends StatefulWidget {
     required this.users,
     required this.onSwipe,
     required this.onViewProfile,
+    this.mutualInterestsByUid = const <String, List<String>>{},
   });
 
   final List<AppUser> users;
+
+  /// Map candidate uid -> mutual interests with current user.
+  final Map<String, List<String>> mutualInterestsByUid;
+
   final OnSwipe onSwipe;
   final OnViewProfile onViewProfile;
 
@@ -28,27 +32,45 @@ class SwipeDeck extends StatefulWidget {
 }
 
 class _SwipeDeckState extends State<SwipeDeck> {
-  int _index = 0;
+  late List<AppUser> _queue;
   bool _busy = false;
 
-  AppUser? get _current => widget.users.isEmpty ? null : widget.users[_index % widget.users.length];
+  @override
+  void initState() {
+    super.initState();
+    _queue = List.of(widget.users);
+  }
 
-  void _advance() {
+  @override
+  void didUpdateWidget(covariant SwipeDeck oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.users, widget.users)) {
+      // Replace the queue with the latest filtered/sorted list from parent.
+      _queue = List.of(widget.users);
+    }
+  }
+
+  AppUser? get _current => _queue.isEmpty ? null : _queue.first;
+
+  void _removeCurrent() {
     if (!mounted) return;
+    if (_queue.isEmpty) return;
     setState(() {
-      _index = (_index + 1) % max(widget.users.length, 1);
+      _queue.removeAt(0);
     });
   }
 
-  Future<void> _handleSwipe(AppUser u, SwipeAction action) async {
+  void _handleSwipe(AppUser u, SwipeAction action) {
     if (_busy) return;
+
+    // Optimistic UI: remove immediately for snappy UX.
+    _removeCurrent();
+
+    // Best-effort background write. Do not block the UI.
     setState(() => _busy = true);
-    try {
-      await widget.onSwipe(u, action);
-    } finally {
+    widget.onSwipe(u, action).catchError((_) {}).whenComplete(() {
       if (mounted) setState(() => _busy = false);
-      _advance();
-    }
+    });
   }
 
   @override
@@ -65,18 +87,21 @@ class _SwipeDeckState extends State<SwipeDeck> {
       );
     }
 
+    final mutual = widget.mutualInterestsByUid[u.uid] ?? const <String>[];
+
     return Stack(
       children: [
         // Background card peek (next user)
-        if (widget.users.length > 1)
+        if (_queue.length > 1)
           Positioned.fill(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 120),
               child: Transform.scale(
                 scale: 0.97,
                 child: _ProfileCard(
-                  user: widget.users[(_index + 1) % widget.users.length],
-                  onTap: () => widget.onViewProfile(widget.users[(_index + 1) % widget.users.length]),
+                  user: _queue[1],
+                  mutualInterests: widget.mutualInterestsByUid[_queue[1].uid] ?? const <String>[],
+                  onTap: () => widget.onViewProfile(_queue[1]),
                 ),
               ),
             ),
@@ -88,6 +113,7 @@ class _SwipeDeckState extends State<SwipeDeck> {
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 120),
             child: _SwipeableCard(
               user: u,
+              mutualInterests: mutual,
               enabled: !_busy,
               onNope: () => _handleSwipe(u, SwipeAction.nope),
               onLike: () => _handleSwipe(u, SwipeAction.like),
@@ -114,7 +140,7 @@ class _SwipeDeckState extends State<SwipeDeck> {
                 _ActionCircle(
                   tooltip: 'Like',
                   icon: Icons.favorite,
-                  color: Colors.pink,
+                  color: theme.colorScheme.secondary,
                   onPressed: _busy ? null : () => _handleSwipe(u, SwipeAction.like),
                 ),
               ],
@@ -141,8 +167,9 @@ class _ActionCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Material(
-      color: Colors.white,
+      color: theme.colorScheme.surface,
       shape: const CircleBorder(),
       elevation: 2,
       child: IconButton(
@@ -158,6 +185,7 @@ class _ActionCircle extends StatelessWidget {
 class _SwipeableCard extends StatefulWidget {
   const _SwipeableCard({
     required this.user,
+    required this.mutualInterests,
     required this.enabled,
     required this.onNope,
     required this.onLike,
@@ -165,6 +193,7 @@ class _SwipeableCard extends StatefulWidget {
   });
 
   final AppUser user;
+  final List<String> mutualInterests;
   final bool enabled;
   final VoidCallback onNope;
   final VoidCallback onLike;
@@ -209,7 +238,11 @@ class _SwipeableCardState extends State<_SwipeableCard> {
         offset: _drag,
         child: Transform.rotate(
           angle: rotation,
-          child: _ProfileCard(user: widget.user, overlayLabel: label),
+          child: _ProfileCard(
+            user: widget.user,
+            mutualInterests: widget.mutualInterests,
+            overlayLabel: label,
+          ),
         ),
       ),
     );
@@ -219,9 +252,15 @@ class _SwipeableCardState extends State<_SwipeableCard> {
 enum _SwipeLabel { like, nope }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.user, this.overlayLabel, this.onTap});
+  const _ProfileCard({
+    required this.user,
+    required this.mutualInterests,
+    this.overlayLabel,
+    this.onTap,
+  });
 
   final AppUser user;
+  final List<String> mutualInterests;
   final _SwipeLabel? overlayLabel;
   final VoidCallback? onTap;
 
@@ -281,7 +320,9 @@ class _ProfileCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         width: 3,
-                        color: overlayLabel == _SwipeLabel.like ? Colors.greenAccent : Colors.redAccent,
+                        color: overlayLabel == _SwipeLabel.like
+                            ? theme.colorScheme.tertiary
+                            : theme.colorScheme.error,
                       ),
                     ),
                     child: Text(
@@ -289,7 +330,9 @@ class _ProfileCard extends StatelessWidget {
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2,
-                        color: overlayLabel == _SwipeLabel.like ? Colors.greenAccent : Colors.redAccent,
+                        color: overlayLabel == _SwipeLabel.like
+                            ? theme.colorScheme.tertiary
+                            : theme.colorScheme.error,
                       ),
                     ),
                   ),
@@ -319,6 +362,34 @@ class _ProfileCard extends StatelessWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
                   ),
                   const SizedBox(height: 8),
+                  if (mutualInterests.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Shared: ${mutualInterests.take(3).join(', ')}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,

@@ -6,7 +6,11 @@ import 'package:flutter/foundation.dart';
 import '../notifications/firestore_notifications_controller.dart';
 import '../notifications/notification_models.dart';
 
-/// Firestore-backed friend requests + friends list.
+/// Firestore-backed friend requests + friends list + lightweight match requests.
+///
+/// NOTE: This match implementation is client-driven (no Cloud Functions). For a
+/// production one-match-only constraint, move match mutations to Cloud
+/// Functions/Callable endpoints with Admin SDK transactions.
 ///
 /// Schema:
 /// friend_requests/{requestId}
@@ -51,6 +55,35 @@ class FriendStatus {
   final bool hasIncomingRequest;
 }
 
+enum SwipeDecision { like, nope }
+
+enum MatchRequestStatus { pending, accepted, declined, cancelled }
+
+@immutable
+class MatchRequest {
+  const MatchRequest({
+    required this.id,
+    required this.fromUid,
+    required this.toUid,
+    required this.status,
+  });
+
+  final String id;
+  final String fromUid;
+  final String toUid;
+  final String status;
+
+  static MatchRequest fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return MatchRequest(
+      id: doc.id,
+      fromUid: d['fromUid'] as String,
+      toUid: d['toUid'] as String,
+      status: d['status'] as String,
+    );
+  }
+}
+
 class FirestoreSocialGraphController {
   FirestoreSocialGraphController({
     FirebaseFirestore? firestore,
@@ -63,6 +96,8 @@ class FirestoreSocialGraphController {
 
   /// Deterministic request id for a pair (from -> to). Prevents duplicates.
   String requestId(String fromUid, String toUid) => '$fromUid->$toUid';
+
+  String matchRequestId(String fromUid, String toUid) => '$fromUid->$toUid';
 
   Stream<Set<String>> friendsStream({required String uid}) {
     return _db.collection('users').doc(uid).collection('friends').snapshots().map(
@@ -78,6 +113,189 @@ class FirestoreSocialGraphController {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map((d) => FriendRequest.fromDoc(d)).toList(growable: false));
+  }
+
+  // outgoingRequestsStream is defined below (friend requests).
+
+  Stream<List<MatchRequest>> incomingMatchRequestsStream({required String uid}) {
+    return _db
+        .collection('match_requests')
+        .where('toUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => MatchRequest.fromDoc(d)).toList(growable: false));
+  }
+
+  Stream<List<MatchRequest>> outgoingMatchRequestsStream({required String uid}) {
+    return _db
+        .collection('match_requests')
+        .where('fromUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => MatchRequest.fromDoc(d)).toList(growable: false));
+  }
+
+  Future<void> recordSwipe({
+    required String uid,
+    required String otherUid,
+    required SwipeDecision decision,
+  }) async {
+    if (uid == otherUid) return;
+    await _db.collection('users').doc(uid).collection('swipes').doc(otherUid).set({
+      'otherUid': otherUid,
+      'decision': decision.name,
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<Set<String>> swipedUids({required String uid}) async {
+    final snap = await _db.collection('users').doc(uid).collection('swipes').get();
+    return snap.docs.map((d) => d.id).toSet();
+  }
+
+  Future<void> sendMatchRequest({required String fromUid, required String toUid}) async {
+    if (fromUid == toUid) return;
+
+    final fromRef = _db.collection('users').doc(fromUid);
+    final toRef = _db.collection('users').doc(toUid);
+    final reqRef = _db.collection('match_requests').doc(matchRequestId(fromUid, toUid));
+
+    await _db.runTransaction((tx) async {
+      final fromSnap = await tx.get(fromRef);
+      final toSnap = await tx.get(toRef);
+      if (!fromSnap.exists || !toSnap.exists) return;
+
+      final from = fromSnap.data() as Map<String, dynamic>;
+      final to = toSnap.data() as Map<String, dynamic>;
+
+      // Soft one-match constraint (client-driven). For strict enforcement use Cloud Functions.
+      if ((from['activeMatchWithUid'] as String?) != null) {
+        throw StateError('You already have a match. Break it before requesting a new one.');
+      }
+      if ((to['activeMatchWithUid'] as String?) != null) {
+        // Target is currently matched.
+        return;
+      }
+
+      final existing = await tx.get(reqRef);
+      if (existing.exists && existing.data()?['status'] == 'pending') {
+        return;
+      }
+
+      tx.set(reqRef, {
+        'fromUid': fromUid,
+        'toUid': toUid,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+
+    await _notifications.create(
+      toUid: toUid,
+      fromUid: fromUid,
+      type: NotificationType.friendRequestSent, // reuse for now; consider a new type
+    );
+  }
+
+  Future<void> acceptMatchRequest({required String toUid, required String fromUid}) async {
+    final reqRef = _db.collection('match_requests').doc(matchRequestId(fromUid, toUid));
+    final matchRef = _db.collection('matches').doc();
+
+    final aRef = _db.collection('users').doc(fromUid);
+    final bRef = _db.collection('users').doc(toUid);
+
+    await _db.runTransaction((tx) async {
+      final req = await tx.get(reqRef);
+      if (!req.exists) return;
+      if (req.data()?['status'] != 'pending') return;
+
+      final aSnap = await tx.get(aRef);
+      final bSnap = await tx.get(bRef);
+      if (!aSnap.exists || !bSnap.exists) return;
+
+      final a = aSnap.data() as Map<String, dynamic>;
+      final b = bSnap.data() as Map<String, dynamic>;
+
+      if ((a['activeMatchWithUid'] as String?) != null || (b['activeMatchWithUid'] as String?) != null) {
+        throw StateError('One of the users is already matched.');
+      }
+
+      tx.set(reqRef, {'status': 'accepted', 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+
+      tx.set(matchRef, {
+        'userAUid': fromUid,
+        'userBUid': toUid,
+        'state': 'matched',
+        'requestedByUid': fromUid,
+        'requestedAt': req.data()?['createdAt'] ?? FieldValue.serverTimestamp(),
+        'matchedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Write match pointers (used by UI + pinned match).
+      tx.set(aRef, {
+        'activeMatchId': matchRef.id,
+        'activeMatchWithUid': toUid,
+        'matchState': 'matched',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      tx.set(bRef, {
+        'activeMatchId': matchRef.id,
+        'activeMatchWithUid': fromUid,
+        'matchState': 'matched',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
+  }
+
+  Future<void> declineMatchRequest({required String toUid, required String fromUid}) async {
+    final ref = _db.collection('match_requests').doc(matchRequestId(fromUid, toUid));
+    await ref.set({'status': 'declined', 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+  }
+
+  Future<void> cancelOutgoingMatchRequest({required String fromUid, required String toUid}) async {
+    final ref = _db.collection('match_requests').doc(matchRequestId(fromUid, toUid));
+    await ref.set({'status': 'cancelled', 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+  }
+
+  Future<void> breakMatch({required String uid}) async {
+    final userRef = _db.collection('users').doc(uid);
+    await _db.runTransaction((tx) async {
+      final me = await tx.get(userRef);
+      final data = me.data();
+      final matchId = data?['activeMatchId'] as String?;
+      final otherUid = data?['activeMatchWithUid'] as String?;
+      if (matchId == null || otherUid == null) return;
+
+      final otherRef = _db.collection('users').doc(otherUid);
+      final matchRef = _db.collection('matches').doc(matchId);
+
+      tx.set(matchRef, {
+        'state': 'broken',
+        'breakupInitiatedByUid': uid,
+        'breakupCompletedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      tx.set(userRef, {
+        'activeMatchId': null,
+        'activeMatchWithUid': null,
+        'matchState': 'single',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      tx.set(otherRef, {
+        'activeMatchId': null,
+        'activeMatchWithUid': null,
+        'matchState': 'single',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
   }
 
   Stream<List<FriendRequest>> outgoingRequestsStream({required String uid}) {
