@@ -29,6 +29,8 @@ class ChatThreadPage extends StatefulWidget {
 class _ChatThreadPageState extends State<ChatThreadPage> {
   final _controller = TextEditingController();
 
+  FirestoreMessage? _replyTo;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -83,14 +85,47 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 520),
-                            child: Card(
-                              elevation: 0,
-                              color: isMe
-                                  ? Theme.of(context).colorScheme.primaryContainer
-                                  : Theme.of(context).colorScheme.surfaceContainerHighest,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                child: Text(text),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onLongPress: () {
+                                setState(() {
+                                  _replyTo = m;
+                                });
+                              },
+                              child: Card(
+                                elevation: 0,
+                                color: isMe
+                                    ? Theme.of(context).colorScheme.primaryContainer
+                                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (m.replyToText != null)
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          margin: const EdgeInsets.only(bottom: 8),
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              left: BorderSide(
+                                                color: Theme.of(context).colorScheme.primary,
+                                                width: 3,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            m.replyToText!,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                        ),
+                                      Text(text),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -104,8 +139,50 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (_replyTo != null)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Replying',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelLarge
+                                          ?.copyWith(fontWeight: FontWeight.w800),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      widget.chat.displayText(_replyTo!),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => setState(() => _replyTo = null),
+                                icon: const Icon(Icons.close),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Row(
+                        children: [
                       Expanded(
                         child: TextField(
                           controller: _controller,
@@ -125,6 +202,8 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                       IconButton.filled(
                         onPressed: areFriends ? _send : null,
                         icon: const Icon(Icons.send),
+                      ),
+                        ],
                       ),
                     ],
                   ),
@@ -149,8 +228,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         toUid: widget.otherUser.uid,
         toEmail: widget.otherUser.email,
         text: text,
+        replyToMessageId: _replyTo?.id,
+        replyToFromUid: _replyTo?.fromUid,
+        replyToText: _replyTo == null ? null : widget.chat.displayText(_replyTo!),
       );
       _controller.clear();
+      setState(() {
+        _replyTo = null;
+      });
     });
   }
 }

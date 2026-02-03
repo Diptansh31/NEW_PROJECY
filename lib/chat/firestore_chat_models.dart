@@ -39,6 +39,9 @@ class FirestoreMessage {
     this.ciphertextB64,
     this.nonceB64,
     this.macB64,
+    this.replyToMessageId,
+    this.replyToFromUid,
+    this.replyToText,
   });
 
   final String id;
@@ -51,6 +54,11 @@ class FirestoreMessage {
   final String? ciphertextB64;
   final String? nonceB64;
   final String? macB64;
+
+  // Reply metadata (denormalized for easy display).
+  final String? replyToMessageId;
+  final String? replyToFromUid;
+  final String? replyToText;
 
   static FirestoreMessage fromDoc({
     required String threadId,
@@ -66,6 +74,9 @@ class FirestoreMessage {
       ciphertextB64: d['ciphertextB64'] as String?,
       nonceB64: d['nonceB64'] as String?,
       macB64: d['macB64'] as String?,
+      replyToMessageId: d['replyToMessageId'] as String?,
+      replyToFromUid: d['replyToFromUid'] as String?,
+      replyToText: d['replyToText'] as String?,
       sentAt: (d['sentAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
     );
   }

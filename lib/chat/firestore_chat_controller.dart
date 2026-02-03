@@ -139,6 +139,9 @@ class FirestoreChatController extends ChangeNotifier {
     required String toUid,
     required String toEmail,
     required String text,
+    String? replyToMessageId,
+    String? replyToFromUid,
+    String? replyToText,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
@@ -151,6 +154,9 @@ class FirestoreChatController extends ChangeNotifier {
       'toUid': toUid,
       'text': trimmed,
       'sentAt': FieldValue.serverTimestamp(),
+      'replyToMessageId': replyToMessageId,
+      'replyToFromUid': replyToFromUid,
+      'replyToText': replyToText,
     });
 
     await _db.collection('threads').doc(threadId).set({
@@ -165,7 +171,10 @@ class FirestoreChatController extends ChangeNotifier {
         type: NotificationType.message,
         threadId: threadId,
       );
-    } catch (_) {}
+    } catch (e) {
+      // ignore: avoid_print
+      print('Failed to create message notification: $e');
+    }
 
     return msgDoc.id;
   }
