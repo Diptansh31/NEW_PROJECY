@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'pages/campus_page.dart';
 import 'pages/discover_page.dart';
 import 'pages/feed_page.dart';
 import 'pages/messages_page.dart';
@@ -42,11 +41,11 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
 
+  // Tinder-like nav: Match (swipe) first, then Feed, Chats, Profile.
   static const _destinations = <_DestinationSpec>[
-    _DestinationSpec('Feed', Icons.home_outlined, Icons.home),
-    _DestinationSpec('Discover', Icons.explore_outlined, Icons.explore),
-    _DestinationSpec('Messages', Icons.chat_bubble_outline, Icons.chat_bubble),
-    _DestinationSpec('Campus', Icons.groups_outlined, Icons.groups),
+    _DestinationSpec('Match', Icons.local_fire_department_outlined, Icons.local_fire_department),
+    _DestinationSpec('Feed', Icons.grid_view_outlined, Icons.grid_view),
+    _DestinationSpec('Chats', Icons.chat_bubble_outline, Icons.chat_bubble),
     _DestinationSpec('Profile', Icons.person_outline, Icons.person),
   ];
 
@@ -134,16 +133,16 @@ class _AppShellState extends State<AppShell> {
   Widget _pageForIndex(int index) {
     switch (index) {
       case 0:
-        return FeedPage(
-          currentUid: widget.signedInUid,
-          posts: widget.posts,
-        );
-      case 1:
         return DiscoverPage(
           signedInUid: widget.signedInUid,
           signedInEmail: widget.signedInEmail,
           auth: widget.auth,
           social: widget.social,
+        );
+      case 1:
+        return FeedPage(
+          currentUid: widget.signedInUid,
+          posts: widget.posts,
         );
       case 2:
         return MessagesPage(
@@ -154,8 +153,6 @@ class _AppShellState extends State<AppShell> {
           chat: widget.chat,
         );
       case 3:
-        return const CampusPage();
-      case 4:
         return ProfilePage(
           signedInUid: widget.signedInUid,
           signedInEmail: widget.signedInEmail,
@@ -165,9 +162,11 @@ class _AppShellState extends State<AppShell> {
           posts: widget.posts,
         );
       default:
-        return FeedPage(
-          currentUid: widget.signedInUid,
-          posts: widget.posts,
+        return DiscoverPage(
+          signedInUid: widget.signedInUid,
+          signedInEmail: widget.signedInEmail,
+          auth: widget.auth,
+          social: widget.social,
         );
     }
   }
@@ -235,24 +234,19 @@ class _LeftRail extends StatelessWidget {
                 labelType: NavigationRailLabelType.all,
                 destinations: const [
                   NavigationRailDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home),
-                    label: Text('Feed'),
+                    icon: Icon(Icons.local_fire_department_outlined),
+                    selectedIcon: Icon(Icons.local_fire_department),
+                    label: Text('Match'),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.explore_outlined),
-                    selectedIcon: Icon(Icons.explore),
-                    label: Text('Discover'),
+                    icon: Icon(Icons.grid_view_outlined),
+                    selectedIcon: Icon(Icons.grid_view),
+                    label: Text('Feed'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.chat_bubble_outline),
                     selectedIcon: Icon(Icons.chat_bubble),
-                    label: Text('Messages'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.groups_outlined),
-                    selectedIcon: Icon(Icons.groups),
-                    label: Text('Campus'),
+                    label: Text('Chats'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.person_outline),

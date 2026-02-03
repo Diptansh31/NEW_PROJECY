@@ -77,7 +77,7 @@ class ProfilePage extends StatelessWidget {
                       Text(
                         me?.username.isNotEmpty == true ? me!.username : 'Your Profile',
                         style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -87,9 +87,26 @@ class ProfilePage extends StatelessWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: null,
+                            icon: const Icon(Icons.edit),
+                            label: const Text('Edit profile (soon)'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.photo_camera_outlined),
+                            label: const Text('Add photos'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        'Tap your photo to change it',
+                        'Tip: add more photos and a short bio to get more matches.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
