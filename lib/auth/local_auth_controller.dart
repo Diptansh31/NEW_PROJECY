@@ -39,6 +39,7 @@ class LocalAuthController extends ChangeNotifier {
     }
 
     final user = AppUser(
+      uid: key,
       email: key,
       username: username.trim(),
       gender: gender,

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "814056118844",
+    "project_id": "valentine-544b0",
+    "storage_bucket": "valentine-544b0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:814056118844:android:8cbd85a050329a8b82c139",
+        "android_client_info": {
+          "package_name": "com.example.vibeu"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "814056118844-mccsqfkoooqksd17o4vdj6sqv9fu7e3v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmtNURqWtbr6yvXZHmBzA2uCc7Od207co"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "814056118844-mccsqfkoooqksd17o4vdj6sqv9fu7e3v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

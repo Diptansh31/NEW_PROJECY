@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../auth/local_auth_controller.dart';
+import '../../auth/firebase_auth_controller.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.controller});
 
-  final LocalAuthController controller;
+  final FirebaseAuthController controller;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -37,7 +37,7 @@ class _LoginPageState extends State<LoginPage> {
 
     await Future<void>.delayed(const Duration(milliseconds: 250));
 
-    final err = widget.controller.signIn(
+    final err = await widget.controller.signIn(
       email: _emailController.text,
       password: _passwordController.text,
     );

@@ -6,13 +6,14 @@ import 'pages/feed_page.dart';
 import 'pages/messages_page.dart';
 import 'pages/profile_page.dart';
 
-import '../auth/local_auth_controller.dart';
+import '../auth/firebase_auth_controller.dart';
 import '../social/social_graph_controller.dart';
-import '../chat/chat_controller.dart';
+import '../chat/firestore_chat_controller.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
+    required this.signedInUid,
     required this.signedInEmail,
     required this.onSignOut,
     required this.auth,
@@ -20,11 +21,12 @@ class AppShell extends StatefulWidget {
     required this.chat,
   });
 
+  final String signedInUid;
   final String signedInEmail;
   final VoidCallback onSignOut;
-  final LocalAuthController auth;
+  final FirebaseAuthController auth;
   final SocialGraphController social;
-  final ChatController chat;
+  final FirestoreChatController chat;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -122,6 +124,7 @@ class _AppShellState extends State<AppShell> {
         );
       case 2:
         return MessagesPage(
+          signedInUid: widget.signedInUid,
           signedInEmail: widget.signedInEmail,
           auth: widget.auth,
           social: widget.social,

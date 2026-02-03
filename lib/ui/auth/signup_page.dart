@@ -4,13 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
-import '../../auth/local_auth_controller.dart';
+import '../../auth/firebase_auth_controller.dart';
 import '../onboarding/nitj_email.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key, required this.controller});
 
-  final LocalAuthController controller;
+  final FirebaseAuthController controller;
 
   @override
   State<SignupPage> createState() => _SignupPageState();
@@ -160,7 +160,7 @@ class _SignupPageState extends State<SignupPage> {
 
     await Future<void>.delayed(const Duration(milliseconds: 250));
 
-    final err = widget.controller.signUp(
+    final err = await widget.controller.signUp(
       email: _emailController.text,
       username: _usernameController.text,
       password: _passwordController.text,

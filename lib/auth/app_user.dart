@@ -1,5 +1,6 @@
 class AppUser {
   const AppUser({
+    required this.uid,
     required this.email,
     required this.username,
     required this.gender,
@@ -8,6 +9,7 @@ class AppUser {
     this.profileImageBytes,
   });
 
+  final String uid;
   final String email;
   final String username;
   final Gender gender;
