@@ -62,6 +62,8 @@ class FirestoreMessage {
     this.messageType = MessageType.text,
     this.callDurationSeconds,
     this.callStatus,
+    this.deletedForEveryone = false,
+    this.deletedForUsers = const <String>[],
   });
 
   final String id;
@@ -92,8 +94,17 @@ class FirestoreMessage {
   /// Status of the call (only for call messages).
   final CallMessageStatus? callStatus;
 
+  /// Whether this message was deleted for everyone.
+  final bool deletedForEveryone;
+
+  /// List of user UIDs who have deleted this message for themselves.
+  final List<String> deletedForUsers;
+
   /// Helper to check if this is a call message.
   bool get isCallMessage => messageType == MessageType.call;
+
+  /// Check if the message is deleted for a specific user.
+  bool isDeletedFor(String uid) => deletedForEveryone || deletedForUsers.contains(uid);
 
   /// Get formatted call duration string (e.g., "2:34").
   String? get formattedCallDuration {
@@ -160,6 +171,11 @@ class FirestoreMessage {
       }
     }
 
+    // Parse deleted status
+    final deletedForEveryone = d['deletedForEveryone'] as bool? ?? false;
+    final deletedForUsersRaw = d['deletedForUsers'] as List?;
+    final deletedForUsers = deletedForUsersRaw?.whereType<String>().toList() ?? <String>[];
+
     return FirestoreMessage(
       id: doc.id,
       threadId: threadId,
@@ -177,6 +193,8 @@ class FirestoreMessage {
       messageType: messageType,
       callDurationSeconds: d['callDurationSeconds'] as int?,
       callStatus: callStatus,
+      deletedForEveryone: deletedForEveryone,
+      deletedForUsers: deletedForUsers,
     );
   }
 }

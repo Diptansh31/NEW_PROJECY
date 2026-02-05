@@ -263,7 +263,14 @@ class FirestoreChatController extends ChangeNotifier {
     });
   }
 
-  String displayText(FirestoreMessage message) {
+  String displayText(FirestoreMessage message, {String? forUid}) {
+    // Check if message is deleted for this user
+    if (forUid != null && message.isDeletedFor(forUid)) {
+      return 'This message was deleted';
+    }
+    if (message.deletedForEveryone) {
+      return 'This message was deleted';
+    }
     if (message.isCallMessage) {
       return _getCallDisplayText(message);
     }
@@ -286,6 +293,102 @@ class FirestoreChatController extends ChangeNotifier {
       default:
         return 'Voice call';
     }
+  }
+
+  /// Deletes a message for the current user only.
+  /// 
+  /// The message will still be visible to the other user.
+  Future<void> deleteMessageForMe({
+    required String threadId,
+    required String messageId,
+    required String uid,
+  }) async {
+    final msgRef = _db.collection('threads').doc(threadId).collection('messages').doc(messageId);
+    await msgRef.update({
+      'deletedForUsers': FieldValue.arrayUnion([uid]),
+    });
+  }
+
+  /// Deletes a message for everyone in the conversation.
+  /// 
+  /// Only the sender can delete a message for everyone.
+  /// The message content is cleared and marked as deleted.
+  Future<void> deleteMessageForEveryone({
+    required String threadId,
+    required String messageId,
+    required String senderUid,
+  }) async {
+    final msgRef = _db.collection('threads').doc(threadId).collection('messages').doc(messageId);
+    
+    // Verify the user is the sender before allowing delete for everyone
+    final doc = await msgRef.get();
+    if (!doc.exists) return;
+    
+    final data = doc.data();
+    if (data == null || data['fromUid'] != senderUid) {
+      throw Exception('Only the sender can delete a message for everyone');
+    }
+
+    await msgRef.update({
+      'deletedForEveryone': true,
+      'text': null, // Clear the message content
+      'ciphertextB64': null,
+      'nonceB64': null,
+      'macB64': null,
+    });
+  }
+
+  /// Deletes multiple messages for the current user only.
+  Future<void> deleteMessagesForMe({
+    required String threadId,
+    required List<String> messageIds,
+    required String uid,
+  }) async {
+    final batch = _db.batch();
+    for (final messageId in messageIds) {
+      final msgRef = _db.collection('threads').doc(threadId).collection('messages').doc(messageId);
+      batch.update(msgRef, {
+        'deletedForUsers': FieldValue.arrayUnion([uid]),
+      });
+    }
+    await batch.commit();
+  }
+
+  /// Deletes multiple messages for everyone (only messages sent by the user).
+  /// 
+  /// Returns the count of messages that were deleted for everyone.
+  /// Messages not sent by the user will be skipped.
+  Future<int> deleteMessagesForEveryone({
+    required String threadId,
+    required List<String> messageIds,
+    required String senderUid,
+  }) async {
+    int deletedCount = 0;
+    final batch = _db.batch();
+    
+    for (final messageId in messageIds) {
+      final msgRef = _db.collection('threads').doc(threadId).collection('messages').doc(messageId);
+      final doc = await msgRef.get();
+      
+      if (!doc.exists) continue;
+      final data = doc.data();
+      if (data == null) continue;
+      
+      // Only delete for everyone if the user is the sender
+      if (data['fromUid'] == senderUid) {
+        batch.update(msgRef, {
+          'deletedForEveryone': true,
+          'text': null,
+          'ciphertextB64': null,
+          'nonceB64': null,
+          'macB64': null,
+        });
+        deletedCount++;
+      }
+    }
+    
+    await batch.commit();
+    return deletedCount;
   }
 
   /// Sends a call message to record a voice call in the chat.

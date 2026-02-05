@@ -54,6 +54,10 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
   FirestoreMessage? _replyTo;
 
+  // Selection mode state
+  bool _selectionMode = false;
+  final Set<String> _selectedMessageIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -117,17 +121,33 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Row(
-              children: [
-                if (isMatch) ...[
-                  Icon(Icons.favorite, color: love),
-                  const SizedBox(width: 8),
-                ],
-                Text(widget.otherUser.username),
-              ],
-            ),
+            leading: _selectionMode
+                ? IconButton(
+                    onPressed: _exitSelectionMode,
+                    icon: const Icon(Icons.close),
+                  )
+                : null,
+            title: _selectionMode
+                ? Text('${_selectedMessageIds.length} selected')
+                : Row(
+                    children: [
+                      if (isMatch) ...[
+                        Icon(Icons.favorite, color: love),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(widget.otherUser.username),
+                    ],
+                  ),
             actions: [
-              if (canChat)
+              if (_selectionMode) ...[
+                IconButton(
+                  onPressed: _selectedMessageIds.isNotEmpty
+                      ? () => _showDeleteDialog(context)
+                      : null,
+                  icon: const Icon(Icons.delete),
+                  tooltip: 'Delete',
+                ),
+              ] else if (canChat)
                 IconButton(
                   onPressed: () => _startVoiceCall(context),
                   icon: const Icon(Icons.call),
@@ -173,8 +193,13 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                         itemBuilder: (context, index) {
                           final m = messages[messages.length - 1 - index];
                           final isMe = m.fromUid == widget.currentUser.uid;
-                          final text = widget.chat.displayText(m);
+                          final isDeleted = m.isDeletedFor(widget.currentUser.uid);
+                          final text = widget.chat.displayText(m, forUid: widget.currentUser.uid);
+                          final isSelected = _selectedMessageIds.contains(m.id);
 
+                          // Skip messages deleted for this user (don't show at all)
+                          // Or show "This message was deleted" - we'll show it
+                          
                           // WhatsApp-like colors: outgoing slightly tinted, incoming neutral.
                           final myBubble = isMatch
                               ? theme.colorScheme.secondary.withValues(alpha: 0.22)
@@ -183,8 +208,8 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                               ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.70)
                               : theme.colorScheme.surfaceContainerHighest;
 
-                          // Special rendering for call messages
-                          if (m.isCallMessage) {
+                          // Special rendering for call messages (if not deleted)
+                          if (m.isCallMessage && !isDeleted) {
                             return _buildCallMessageBubble(
                               context: context,
                               message: m,
@@ -197,89 +222,136 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                             padding: const EdgeInsets.only(bottom: 10),
                             child: SizedBox(
                               width: double.infinity,
-                              child: SwipeToReply(
-                                replyFromRight: isMe,
-                                onReply: () => setState(() => _replyTo = m),
-                                child: Align(
-                                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onLongPress: () => _showMessageActions(context, m),
-                                      child: IntrinsicWidth(
+                              child: Row(
+                                children: [
+                                  // Selection checkbox
+                                  if (_selectionMode)
+                                    Checkbox(
+                                      value: isSelected,
+                                      onChanged: (_) => _toggleMessageSelection(m.id),
+                                    ),
+                                  Expanded(
+                                    child: SwipeToReply(
+                                      replyFromRight: isMe,
+                                      onReply: isDeleted ? () {} : () => setState(() => _replyTo = m),
+                                      child: GestureDetector(
+                                        onTap: _selectionMode
+                                            ? () => _toggleMessageSelection(m.id)
+                                            : null,
+                                        onLongPress: isDeleted
+                                            ? null
+                                            : () => _enterSelectionMode(m.id),
                                         child: Container(
-                                          decoration: BoxDecoration(
-                                            color: isMe ? myBubble : otherBubble,
-                                            borderRadius: BorderRadius.only(
-                                              topLeft: const Radius.circular(16),
-                                              topRight: const Radius.circular(16),
-                                              bottomLeft: Radius.circular(isMe ? 16 : 4),
-                                              bottomRight: Radius.circular(isMe ? 4 : 16),
-                                            ),
-                                          ),
-                                          padding: const EdgeInsets.fromLTRB(12, 8, 10, 6),
-                                          child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (m.replyToText != null)
-                                              Container(
-                                                padding: const EdgeInsets.all(8),
-                                                margin: const EdgeInsets.only(bottom: 8),
-                                                decoration: BoxDecoration(
-                                                  border: Border(
-                                                    left: BorderSide(
-                                                      color: theme.colorScheme.primary,
-                                                      width: 3,
+                                          color: isSelected
+                                              ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                                              : Colors.transparent,
+                                          child: Align(
+                                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+                                              child: IntrinsicWidth(
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: isDeleted
+                                                        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                                                        : (isMe ? myBubble : otherBubble),
+                                                    borderRadius: BorderRadius.only(
+                                                      topLeft: const Radius.circular(16),
+                                                      topRight: const Radius.circular(16),
+                                                      bottomLeft: Radius.circular(isMe ? 16 : 4),
+                                                      bottomRight: Radius.circular(isMe ? 4 : 16),
                                                     ),
                                                   ),
-                                                ),
-                                                child: Text(
-                                                  m.replyToText!,
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: theme.textTheme.bodySmall,
-                                                ),
-                                              ),
-                                            Stack(
-                                              children: [
-                                                Padding(
-                                                  padding: const EdgeInsets.only(right: 54, bottom: 14),
-                                                  child: Text(text),
-                                                ),
-                                                Positioned(
-                                                  right: 0,
-                                                  bottom: 0,
-                                                  child: Text(
-                                                    _formatTime(m.sentAt),
-                                                    style: theme.textTheme.labelSmall?.copyWith(
-                                                      color: theme.colorScheme.onSurfaceVariant,
-                                                    ),
+                                                  padding: const EdgeInsets.fromLTRB(12, 8, 10, 6),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      if (m.replyToText != null && !isDeleted)
+                                                        Container(
+                                                          padding: const EdgeInsets.all(8),
+                                                          margin: const EdgeInsets.only(bottom: 8),
+                                                          decoration: BoxDecoration(
+                                                            border: Border(
+                                                              left: BorderSide(
+                                                                color: theme.colorScheme.primary,
+                                                                width: 3,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            m.replyToText!,
+                                                            maxLines: 2,
+                                                            overflow: TextOverflow.ellipsis,
+                                                            style: theme.textTheme.bodySmall,
+                                                          ),
+                                                        ),
+                                                      Stack(
+                                                        children: [
+                                                          Padding(
+                                                            padding: const EdgeInsets.only(right: 54, bottom: 14),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                if (isDeleted)
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.only(right: 6),
+                                                                    child: Icon(
+                                                                      Icons.block,
+                                                                      size: 16,
+                                                                      color: theme.colorScheme.onSurfaceVariant,
+                                                                    ),
+                                                                  ),
+                                                                Flexible(
+                                                                  child: Text(
+                                                                    text,
+                                                                    style: isDeleted
+                                                                        ? theme.textTheme.bodyMedium?.copyWith(
+                                                                            fontStyle: FontStyle.italic,
+                                                                            color: theme.colorScheme.onSurfaceVariant,
+                                                                          )
+                                                                        : null,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          Positioned(
+                                                            right: 0,
+                                                            bottom: 0,
+                                                            child: Text(
+                                                              _formatTime(m.sentAt),
+                                                              style: theme.textTheme.labelSmall?.copyWith(
+                                                                color: theme.colorScheme.onSurfaceVariant,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      if (m.reactions.isNotEmpty && !isDeleted) ...[
+                                                        const SizedBox(height: 8),
+                                                        ReactionRow(
+                                                          reactions: m.reactions,
+                                                          myUid: widget.currentUser.uid,
+                                                          onToggle: (emoji) => widget.chat.toggleReaction(
+                                                            threadId: widget.thread.id,
+                                                            messageId: m.id,
+                                                            emoji: emoji,
+                                                            uid: widget.currentUser.uid,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ],
                                                   ),
                                                 ),
-                                              ],
-                                            ),
-                                            if (m.reactions.isNotEmpty) ...[
-                                              const SizedBox(height: 8),
-                                              ReactionRow(
-                                                reactions: m.reactions,
-                                                myUid: widget.currentUser.uid,
-                                                onToggle: (emoji) => widget.chat.toggleReaction(
-                                                  threadId: widget.thread.id,
-                                                  messageId: m.id,
-                                                  emoji: emoji,
-                                                  uid: widget.currentUser.uid,
-                                                ),
                                               ),
-                                            ],
-                                          ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           );
@@ -442,78 +514,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     );
   }
 
-  Future<void> _showMessageActions(BuildContext context, FirestoreMessage message) async {
-    final theme = Theme.of(context);
-    final quick = <String>['❤️', '😂', '😮', '😢', '😡', '👍'];
-
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('React', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    for (final e in quick)
-                      InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          fireAndForget(
-                            widget.chat.toggleReaction(
-                              threadId: widget.thread.id,
-                              messageId: message.id,
-                              emoji: e,
-                              uid: widget.currentUser.uid,
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: theme.colorScheme.outlineVariant),
-                          ),
-                          child: Text(e, style: const TextStyle(fontSize: 18)),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.reply),
-                  title: const Text('Reply'),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    setState(() => _replyTo = message);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.copy_all_outlined),
-                  title: const Text('Copy'),
-                  onTap: () {
-                    // Clipboard import avoided; implement later if needed.
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Future<void> _send() async {
     final text = _controller.text.trim();
@@ -548,6 +548,153 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         ),
       ),
     );
+  }
+
+  void _enterSelectionMode(String messageId) {
+    setState(() {
+      _selectionMode = true;
+      _selectedMessageIds.add(messageId);
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectedMessageIds.clear();
+    });
+  }
+
+  void _toggleMessageSelection(String messageId) {
+    setState(() {
+      if (_selectedMessageIds.contains(messageId)) {
+        _selectedMessageIds.remove(messageId);
+        if (_selectedMessageIds.isEmpty) {
+          _selectionMode = false;
+        }
+      } else {
+        _selectedMessageIds.add(messageId);
+      }
+    });
+  }
+
+  Future<void> _showDeleteDialog(BuildContext context) async {
+    final theme = Theme.of(context);
+    final count = _selectedMessageIds.length;
+    
+    // Check if any selected message can be deleted for everyone (sent by current user)
+    final messagesStream = widget.chat.messagesStream(threadId: widget.thread.id);
+    final messages = await messagesStream.first;
+    final selectedMessages = messages.where((m) => _selectedMessageIds.contains(m.id)).toList();
+    final canDeleteForEveryone = selectedMessages.any((m) => m.fromUid == widget.currentUser.uid);
+    final allMine = selectedMessages.every((m) => m.fromUid == widget.currentUser.uid);
+
+    if (!mounted) return;
+
+    final ctx = context;
+    await showModalBottomSheet<void>(
+      context: ctx,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Delete $count message${count > 1 ? 's' : ''}?',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                
+                // Delete for me option
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Delete for me'),
+                  subtitle: const Text('This message will be deleted from your device only'),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    await _deleteForMe();
+                  },
+                ),
+
+                // Delete for everyone option (only if user sent any selected message)
+                if (canDeleteForEveryone)
+                  ListTile(
+                    leading: const Icon(Icons.delete_forever),
+                    title: const Text('Delete for everyone'),
+                    subtitle: Text(
+                      allMine
+                          ? 'This message will be deleted for all participants'
+                          : 'Only your messages will be deleted for everyone',
+                    ),
+                    onTap: () async {
+                      Navigator.of(ctx).pop();
+                      await _deleteForEveryone();
+                    },
+                  ),
+
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteForMe() async {
+    final messageIds = _selectedMessageIds.toList();
+    _exitSelectionMode();
+
+    await runAsyncAction(context, () async {
+      await widget.chat.deleteMessagesForMe(
+        threadId: widget.thread.id,
+        messageIds: messageIds,
+        uid: widget.currentUser.uid,
+      );
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${messageIds.length} message${messageIds.length > 1 ? 's' : ''} deleted'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteForEveryone() async {
+    final messageIds = _selectedMessageIds.toList();
+    _exitSelectionMode();
+
+    await runAsyncAction(context, () async {
+      final deletedCount = await widget.chat.deleteMessagesForEveryone(
+        threadId: widget.thread.id,
+        messageIds: messageIds,
+        senderUid: widget.currentUser.uid,
+      );
+
+      if (mounted) {
+        final skipped = messageIds.length - deletedCount;
+        String message = '$deletedCount message${deletedCount > 1 ? 's' : ''} deleted for everyone';
+        if (skipped > 0) {
+          message += ' ($skipped skipped - not your messages)';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    });
   }
 
   /// Builds a WhatsApp-style call message bubble with appropriate icons.
