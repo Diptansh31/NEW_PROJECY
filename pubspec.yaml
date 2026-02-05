@@ -43,11 +43,15 @@ dependencies:
   firebase_auth: ^5.6.0
   cloud_firestore: ^5.5.0
   firebase_storage: ^12.3.0
+  cloud_functions: ^5.1.5
 
   # Encryption + key storage
   flutter_secure_storage: ^9.2.4
   cryptography: ^2.7.0
   cryptography_flutter: ^2.3.2
+
+  # Emoji picker
+  emoji_picker_flutter: ^4.3.0
 
 dev_dependencies:
   flutter_test:

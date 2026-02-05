@@ -1,3 +1,5 @@
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
@@ -40,13 +42,38 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  bool _showEmojiPicker = false;
 
   FirestoreMessage? _replyTo;
 
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _toggleEmojiPicker() {
+    if (_showEmojiPicker) {
+      _focusNode.requestFocus();
+    } else {
+      _focusNode.unfocus();
+    }
+    setState(() => _showEmojiPicker = !_showEmojiPicker);
+  }
+
+  void _onEmojiSelected(Category? category, Emoji emoji) {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    final newText = text.replaceRange(
+      selection.start,
+      selection.end,
+      emoji.emoji,
+    );
+    final newCursorPosition = selection.start + emoji.emoji.length;
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: newCursorPosition);
   }
 
   @override
@@ -267,9 +294,16 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                           ),
                         Row(
                           children: [
+                            IconButton(
+                              onPressed: canChat ? _toggleEmojiPicker : null,
+                              icon: Icon(
+                                _showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                              ),
+                            ),
                             Expanded(
                               child: TextField(
                                 controller: _controller,
+                                focusNode: _focusNode,
                                 enabled: canChat,
                                 decoration: const InputDecoration(
                                   hintText: 'Message…',
@@ -280,6 +314,11 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                 maxLines: 4,
                                 textInputAction: TextInputAction.send,
                                 onSubmitted: canChat ? (_) => _send() : null,
+                                onTap: () {
+                                  if (_showEmojiPicker) {
+                                    setState(() => _showEmojiPicker = false);
+                                  }
+                                },
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -289,6 +328,36 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                             ),
                           ],
                         ),
+                        if (_showEmojiPicker)
+                          SizedBox(
+                            height: 280,
+                            child: EmojiPicker(
+                              onEmojiSelected: _onEmojiSelected,
+                              config: Config(
+                                height: 280,
+                                checkPlatformCompatibility: true,
+                                emojiViewConfig: EmojiViewConfig(
+                                  emojiSizeMax: 28 * (foundation.defaultTargetPlatform == TargetPlatform.iOS ? 1.30 : 1.0),
+                                ),
+                                viewOrderConfig: const ViewOrderConfig(
+                                  top: EmojiPickerItem.searchBar,
+                                  middle: EmojiPickerItem.categoryBar,
+                                  bottom: EmojiPickerItem.emojiView,
+                                ),
+                                skinToneConfig: const SkinToneConfig(),
+                                categoryViewConfig: CategoryViewConfig(
+                                  backgroundColor: theme.colorScheme.surface,
+                                  indicatorColor: theme.colorScheme.primary,
+                                  iconColorSelected: theme.colorScheme.primary,
+                                ),
+                                bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
+                                searchViewConfig: SearchViewConfig(
+                                  backgroundColor: theme.colorScheme.surface,
+                                  buttonIconColor: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
