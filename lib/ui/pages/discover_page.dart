@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import '../../auth/app_user.dart';
 import '../../auth/firebase_auth_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
+import '../../social/local_swipe_store.dart';
 import '../widgets/async_error_view.dart';
 import 'swipe_deck.dart';
+import 'match_requests_page.dart';
 import 'user_profile_page.dart';
 
 class DiscoverPage extends StatelessWidget {
@@ -50,7 +52,18 @@ class _SwipeDiscover extends StatefulWidget {
 }
 
 class _SwipeDiscoverState extends State<_SwipeDiscover> {
+  final _localSwipes = LocalSwipeStore();
   final Set<String> _swipedUids = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    // Load local exclusions so users don't reappear even if Firestore writes fail.
+    _localSwipes.loadExcludedUids(widget.signedInUid).then((set) {
+      if (!mounted) return;
+      setState(() => _swipedUids.addAll(set));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,10 +150,43 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
               return rnd.nextBool() ? 1 : -1;
             });
 
-            return SwipeDeck(
-              users: candidates,
-              mutualInterestsByUid: mutualByUid,
-              onViewProfile: (u) {
+            return Column(
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Match',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: 'Match requests',
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => MatchRequestsPage(
+                                  currentUid: widget.signedInUid,
+                                  auth: widget.auth,
+                                  social: widget.social,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.inbox_outlined),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SwipeDeck(
+                    users: candidates,
+                    mutualInterestsByUid: mutualByUid,
+                    onViewProfile: (u) {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => UserProfilePage(
@@ -151,24 +197,40 @@ class _SwipeDiscoverState extends State<_SwipeDiscover> {
                   ),
                 );
               },
-              onSwipe: (u, action) async {
+                    onSwipe: (u, action) async {
                 // Immediately mark as swiped so it doesn't re-appear on rebuild.
                 if (mounted) {
                   setState(() => _swipedUids.add(u.uid));
                 }
 
-                // Persist swipe decision (prevents repeats across sessions once rules allow).
-                await widget.social.recordSwipe(
-                  uid: widget.signedInUid,
-                  otherUid: u.uid,
-                  decision: action == SwipeAction.like ? SwipeDecision.like : SwipeDecision.nope,
-                );
-
-                if (action == SwipeAction.like) {
+                // For friend/match, run the network write first.
+                // If anything fails, throw so SwipeDeck can rollback the card.
+                if (action == SwipeAction.friend) {
+                  await widget.social.sendRequest(fromUid: widget.signedInUid, toUid: u.uid);
+                } else if (action == SwipeAction.match) {
                   await widget.social.sendMatchRequest(fromUid: widget.signedInUid, toUid: u.uid);
                 }
-                // action == nope: no-op for now
-              },
+
+                // Persist locally (reliable) + best-effort Firestore write.
+                await _localSwipes.addExcluded(widget.signedInUid, u.uid);
+
+                try {
+                  await widget.social.recordSwipe(
+                    uid: widget.signedInUid,
+                    otherUid: u.uid,
+                    decision: switch (action) {
+                      SwipeAction.match => SwipeDecision.match,
+                      SwipeAction.friend => SwipeDecision.friend,
+                      SwipeAction.skip => SwipeDecision.skip,
+                    },
+                  );
+                } catch (_) {
+                  // Ignore: local store already ensures it won't reappear.
+                }
+                    },
+                  ),
+                ),
+              ],
             );
           },
         );

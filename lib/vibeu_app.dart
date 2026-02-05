@@ -16,8 +16,8 @@ class VibeUApp extends StatefulWidget {
 
 class _VibeUAppState extends State<VibeUApp> {
   final _auth = FirebaseAuthController();
-  final _social = FirestoreSocialGraphController();
   late final _chat = FirestoreChatController(auth: _auth);
+  late final _social = FirestoreSocialGraphController(chat: _chat);
   final _notifications = FirestoreNotificationsController();
   final _posts = FirestorePostsController();
 

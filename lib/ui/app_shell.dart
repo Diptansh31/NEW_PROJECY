@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'pages/discover_page.dart';
@@ -40,6 +42,21 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+
+  StreamSubscription? _threadsWarmSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Warm chat threads so Chats tab feels instant.
+    _threadsWarmSub = widget.chat.threadsStream(myUid: widget.signedInUid).listen((_) {});
+  }
+
+  @override
+  void dispose() {
+    _threadsWarmSub?.cancel();
+    super.dispose();
+  }
 
   // Tinder-like nav: Match (swipe) first, then Feed, Chats, Profile.
   static const _destinations = <_DestinationSpec>[

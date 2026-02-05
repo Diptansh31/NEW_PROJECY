@@ -177,6 +177,13 @@ class FirebaseAuthController extends ChangeNotifier {
     });
   }
 
+  Stream<String?> activeCoupleThreadIdStream(String uid) {
+    return _db.collection('users').doc(uid).snapshots().map((doc) {
+      final data = doc.data();
+      return data?['activeCoupleThreadId'] as String?;
+    });
+  }
+
   Future<void> updateProfileImage({required String uid, required List<int> bytes}) async {
     await _db.collection('users').doc(uid).set({
       'profileImageB64': base64Encode(bytes),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
 
-enum SwipeAction { like, nope }
+enum SwipeAction { match, friend, skip }
 
 typedef OnSwipe = Future<void> Function(AppUser user, SwipeAction action);
 
@@ -52,23 +52,58 @@ class _SwipeDeckState extends State<SwipeDeck> {
 
   AppUser? get _current => _queue.isEmpty ? null : _queue.first;
 
-  void _removeCurrent() {
-    if (!mounted) return;
-    if (_queue.isEmpty) return;
+  AppUser? _removeCurrent() {
+    if (!mounted) return null;
+    if (_queue.isEmpty) return null;
+    final removed = _queue.first;
     setState(() {
       _queue.removeAt(0);
     });
+    return removed;
+  }
+
+  void _reinsertFront(AppUser u) {
+    if (!mounted) return;
+    if (_queue.isNotEmpty && _queue.first.uid == u.uid) return;
+    setState(() {
+      _queue.insert(0, u);
+    });
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          duration: const Duration(milliseconds: 900),
+        ),
+      );
   }
 
   void _handleSwipe(AppUser u, SwipeAction action) {
     if (_busy) return;
 
-    // Optimistic UI: remove immediately for snappy UX.
-    _removeCurrent();
+    final removed = _removeCurrent();
+    if (removed == null) return;
 
-    // Best-effort background write. Do not block the UI.
+    // Skip: remove immediately, but still notify parent so it can persist and
+    // filter the user out permanently.
+    if (action == SwipeAction.skip) {
+      _toast('Next');
+      widget.onSwipe(u, action).catchError((_) {});
+      return;
+    }
+
+    // Friend/Match: optimistic remove, but rollback if the write fails.
     setState(() => _busy = true);
-    widget.onSwipe(u, action).catchError((_) {}).whenComplete(() {
+    widget.onSwipe(u, action).then((_) {
+      _toast(action == SwipeAction.friend ? 'Friend request sent' : 'Match request sent');
+    }).catchError((e) {
+      _reinsertFront(removed);
+      _toast('Failed. Try again');
+    }).whenComplete(() {
       if (mounted) setState(() => _busy = false);
     });
   }
@@ -115,8 +150,8 @@ class _SwipeDeckState extends State<SwipeDeck> {
               user: u,
               mutualInterests: mutual,
               enabled: !_busy,
-              onNope: () => _handleSwipe(u, SwipeAction.nope),
-              onLike: () => _handleSwipe(u, SwipeAction.like),
+              onFriend: () => _handleSwipe(u, SwipeAction.friend),
+              onSkip: () => _handleSwipe(u, SwipeAction.skip),
               onTap: () => widget.onViewProfile(u),
             ),
           ),
@@ -131,17 +166,17 @@ class _SwipeDeckState extends State<SwipeDeck> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _ActionCircle(
-                  tooltip: 'Nope',
-                  icon: Icons.close,
-                  color: theme.colorScheme.error,
-                  onPressed: _busy ? null : () => _handleSwipe(u, SwipeAction.nope),
+                  tooltip: 'Add friend',
+                  icon: Icons.person_add_alt_1,
+                  color: theme.colorScheme.primary,
+                  onPressed: _busy ? null : () => _handleSwipe(u, SwipeAction.friend),
                 ),
                 const SizedBox(width: 22),
                 _ActionCircle(
-                  tooltip: 'Like',
+                  tooltip: 'Match',
                   icon: Icons.favorite,
                   color: theme.colorScheme.secondary,
-                  onPressed: _busy ? null : () => _handleSwipe(u, SwipeAction.like),
+                  onPressed: _busy ? null : () => _handleSwipe(u, SwipeAction.match),
                 ),
               ],
             ),
@@ -187,16 +222,16 @@ class _SwipeableCard extends StatefulWidget {
     required this.user,
     required this.mutualInterests,
     required this.enabled,
-    required this.onNope,
-    required this.onLike,
+    required this.onFriend,
+    required this.onSkip,
     required this.onTap,
   });
 
   final AppUser user;
   final List<String> mutualInterests;
   final bool enabled;
-  final VoidCallback onNope;
-  final VoidCallback onLike;
+  final VoidCallback onFriend;
+  final VoidCallback onSkip;
   final VoidCallback onTap;
 
   @override
@@ -215,8 +250,8 @@ class _SwipeableCardState extends State<_SwipeableCard> {
     final label = dx.abs() < 18
         ? null
         : dx > 0
-            ? _SwipeLabel.like
-            : _SwipeLabel.nope;
+            ? _SwipeLabel.skip
+            : _SwipeLabel.friend;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -227,9 +262,11 @@ class _SwipeableCardState extends State<_SwipeableCard> {
           ? (d) {
               final threshold = size.width * 0.22;
               if (_drag.dx > threshold) {
-                widget.onLike();
+                // Swipe right = next/skip.
+                widget.onSkip();
               } else if (_drag.dx < -threshold) {
-                widget.onNope();
+                // Swipe left = friend request.
+                widget.onFriend();
               }
               setState(() => _drag = Offset.zero);
             }
@@ -249,7 +286,7 @@ class _SwipeableCardState extends State<_SwipeableCard> {
   }
 }
 
-enum _SwipeLabel { like, nope }
+enum _SwipeLabel { skip, friend }
 
 class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
@@ -310,29 +347,29 @@ class _ProfileCard extends StatelessWidget {
             if (overlayLabel != null)
               Positioned(
                 top: 22,
-                left: overlayLabel == _SwipeLabel.like ? 22 : null,
-                right: overlayLabel == _SwipeLabel.nope ? 22 : null,
+                left: overlayLabel == _SwipeLabel.skip ? 22 : null,
+                right: overlayLabel == _SwipeLabel.friend ? 22 : null,
                 child: Transform.rotate(
-                  angle: overlayLabel == _SwipeLabel.like ? -0.18 : 0.18,
+                  angle: overlayLabel == _SwipeLabel.skip ? -0.18 : 0.18,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         width: 3,
-                        color: overlayLabel == _SwipeLabel.like
+                        color: overlayLabel == _SwipeLabel.skip
                             ? theme.colorScheme.tertiary
-                            : theme.colorScheme.error,
+                            : theme.colorScheme.primary,
                       ),
                     ),
                     child: Text(
-                      overlayLabel == _SwipeLabel.like ? 'LIKE' : 'NOPE',
+                      overlayLabel == _SwipeLabel.skip ? 'NEXT' : 'FRIEND',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2,
-                        color: overlayLabel == _SwipeLabel.like
+                        color: overlayLabel == _SwipeLabel.skip
                             ? theme.colorScheme.tertiary
-                            : theme.colorScheme.error,
+                            : theme.colorScheme.primary,
                       ),
                     ),
                   ),

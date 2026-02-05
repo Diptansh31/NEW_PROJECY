@@ -5,6 +5,7 @@ import '../../auth/firebase_auth_controller.dart';
 import '../../chat/firestore_chat_controller.dart';
 import '../../chat/firestore_chat_models.dart';
 import '../../social/firestore_social_graph_controller.dart';
+import '../widgets/async_action.dart';
 import '_messages_widgets.dart';
 import 'chat_thread_page.dart';
 
@@ -31,13 +32,22 @@ class MessagesPage extends StatefulWidget {
 class _MessagesPageState extends State<MessagesPage> {
   final _searchController = TextEditingController();
 
+  late final Future<AppUser?> _currentUserFuture;
+  late final Future<List<AppUser>> _allUsersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cache futures so switching tabs doesn't refetch and cause UI lag.
+    _currentUserFuture = widget.auth.publicProfileByUid(widget.signedInUid);
+    _allUsersFuture = widget.auth.getAllUsers();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-
-  Future<AppUser?> get _currentUser async => widget.auth.getUserByEmail(widget.signedInEmail);
 
   Future<void> _openChatWith({required AppUser current, required AppUser other, bool isMatchChat = false}) async {
     final thread = await widget.chat.getOrCreateThread(
@@ -66,7 +76,7 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<AppUser?>(
-      future: _currentUser,
+      future: _currentUserFuture,
       builder: (context, userSnap) {
         final currentUser = userSnap.data;
         if (currentUser == null) {
@@ -82,7 +92,7 @@ class _MessagesPageState extends State<MessagesPage> {
             }
 
             return FutureBuilder<List<AppUser>>(
-              future: widget.auth.getAllUsers(),
+              future: _allUsersFuture,
               builder: (context, allSnap) {
                 final allUsers = allSnap.data;
                 if (allUsers == null) {
@@ -147,25 +157,84 @@ class _MessagesPageState extends State<MessagesPage> {
                                 return const SizedBox.shrink();
                               }
 
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: Card(
-                                  elevation: 0,
-                                  child: ListTile(
-                                    leading: const CircleAvatar(child: Icon(Icons.favorite)),
-                                    title: Text(
-                                      'Your Match · ${matchUser.username}',
-                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                              return StreamBuilder<String?>(
+                                stream: widget.auth.activeCoupleThreadIdStream(currentUser.uid),
+                                builder: (context, threadSnap) {
+                                  final coupleThreadId = threadSnap.data;
+                                  if (coupleThreadId == null || coupleThreadId.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: Card(
+                                      elevation: 0,
+                                      child: ListTile(
+                                        leading: const CircleAvatar(child: Icon(Icons.favorite)),
+                                        title: Text(
+                                          'Your Match · ${matchUser.username}',
+                                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                                        ),
+                                        subtitle: Text(
+                                          'Couple chat',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                        ),
+                                        trailing: PopupMenuButton<String>(
+                                          itemBuilder: (context) => const [
+                                            PopupMenuItem(value: 'end', child: Text('End match')),
+                                          ],
+                                          onSelected: (v) async {
+                                            if (v != 'end') return;
+                                            final ok = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) {
+                                                return AlertDialog(
+                                                  title: const Text('End match?'),
+                                                  content: const Text(
+                                                    'This will end your match for both of you and delete the couple chat immediately.',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.of(ctx).pop(false),
+                                                      child: const Text('Cancel'),
+                                                    ),
+                                                    FilledButton(
+                                                      onPressed: () => Navigator.of(ctx).pop(true),
+                                                      child: const Text('End match'),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                            if (ok != true || !context.mounted) return;
+                                            await runAsyncAction(
+                                              context,
+                                              () => widget.social.breakMatch(uid: currentUser.uid),
+                                              successMessage: 'Match ended',
+                                            );
+                                          },
+                                        ),
+                                        onTap: () async {
+                                          final thread = await widget.chat.getThreadById(coupleThreadId);
+                                          if (thread == null || !context.mounted) return;
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => ChatThreadPage(
+                                                currentUser: currentUser,
+                                                otherUser: matchUser,
+                                                thread: thread,
+                                                chat: widget.chat,
+                                                social: widget.social,
+                                                isMatchChat: true,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     ),
-                                    subtitle: Text(
-                                      'Pinned',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                                    ),
-                                    trailing: const Icon(Icons.chevron_right),
-                                    onTap: () => _openChatWith(current: currentUser, other: matchUser, isMatchChat: true),
-                                  ),
-                                ),
+                                  );
+                                },
                               );
                             },
                           ),
@@ -177,6 +246,13 @@ class _MessagesPageState extends State<MessagesPage> {
                           StreamBuilder<List<FirestoreChatThread>>(
                             stream: widget.chat.threadsStream(myUid: currentUser.uid),
                             builder: (context, threadSnap) {
+                              if (threadSnap.hasError) {
+                                return Text(
+                                  'Failed to load chats: ${threadSnap.error}',
+                                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                                );
+                              }
+
                               final threads = threadSnap.data;
                               if (threads == null) {
                                 return const Padding(

@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
+import '../chat/firestore_chat_controller.dart';
 import '../notifications/firestore_notifications_controller.dart';
 import '../notifications/notification_models.dart';
 
@@ -55,7 +57,7 @@ class FriendStatus {
   final bool hasIncomingRequest;
 }
 
-enum SwipeDecision { like, nope }
+enum SwipeDecision { match, friend, skip }
 
 enum MatchRequestStatus { pending, accepted, declined, cancelled }
 
@@ -88,8 +90,12 @@ class FirestoreSocialGraphController {
   FirestoreSocialGraphController({
     FirebaseFirestore? firestore,
     FirestoreNotificationsController? notifications,
+    FirestoreChatController? chat,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _notifications = notifications ?? FirestoreNotificationsController(firestore: firestore ?? FirebaseFirestore.instance);
+        _notifications = notifications ?? FirestoreNotificationsController(firestore: firestore ?? FirebaseFirestore.instance),
+        _chat = chat;
+
+  final FirestoreChatController? _chat;
 
   final FirebaseFirestore _db;
   final FirestoreNotificationsController _notifications;
@@ -207,6 +213,26 @@ class FirestoreSocialGraphController {
     final aRef = _db.collection('users').doc(fromUid);
     final bRef = _db.collection('users').doc(toUid);
 
+    // Create couple thread outside transaction (Firestore doesn't allow creating
+    // arbitrary docs with generated ids inside security-limited transactions).
+    final aSnap = await aRef.get();
+    final bSnap = await bRef.get();
+    final aEmail = (aSnap.data()?['email'] as String?) ?? '';
+    final bEmail = (bSnap.data()?['email'] as String?) ?? '';
+
+    final chat = _chat;
+    if (chat == null) {
+      throw StateError('Chat controller not configured');
+    }
+
+    final coupleThread = await chat.createCoupleThread(
+      uidA: fromUid,
+      emailA: aEmail,
+      uidB: toUid,
+      emailB: bEmail,
+      matchId: matchRef.id,
+    );
+
     await _db.runTransaction((tx) async {
       final req = await tx.get(reqRef);
       if (!req.exists) return;
@@ -234,12 +260,14 @@ class FirestoreSocialGraphController {
         'matchedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'coupleThreadId': coupleThread.id,
       });
 
       // Write match pointers (used by UI + pinned match).
       tx.set(aRef, {
         'activeMatchId': matchRef.id,
         'activeMatchWithUid': toUid,
+        'activeCoupleThreadId': coupleThread.id,
         'matchState': 'matched',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -247,6 +275,7 @@ class FirestoreSocialGraphController {
       tx.set(bRef, {
         'activeMatchId': matchRef.id,
         'activeMatchWithUid': fromUid,
+        'activeCoupleThreadId': coupleThread.id,
         'matchState': 'matched',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -265,26 +294,35 @@ class FirestoreSocialGraphController {
 
   Future<void> breakMatch({required String uid}) async {
     final userRef = _db.collection('users').doc(uid);
+
+    String? matchId;
+    String? otherUid;
+    String? coupleThreadId;
+
+    // 1) Clear pointers in a transaction (revokes access immediately via rules).
     await _db.runTransaction((tx) async {
       final me = await tx.get(userRef);
       final data = me.data();
-      final matchId = data?['activeMatchId'] as String?;
-      final otherUid = data?['activeMatchWithUid'] as String?;
+      matchId = data?['activeMatchId'] as String?;
+      otherUid = data?['activeMatchWithUid'] as String?;
+      coupleThreadId = data?['activeCoupleThreadId'] as String?;
       if (matchId == null || otherUid == null) return;
 
-      final otherRef = _db.collection('users').doc(otherUid);
-      final matchRef = _db.collection('matches').doc(matchId);
+      final otherRef = _db.collection('users').doc(otherUid!);
+      final matchRef = _db.collection('matches').doc(matchId!);
 
       tx.set(matchRef, {
         'state': 'broken',
         'breakupInitiatedByUid': uid,
-        'breakupCompletedAt': FieldValue.serverTimestamp(),
+        'breakupConfirmedByUid': uid,
+        'brokenAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       tx.set(userRef, {
         'activeMatchId': null,
         'activeMatchWithUid': null,
+        'activeCoupleThreadId': null,
         'matchState': 'single',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -292,10 +330,36 @@ class FirestoreSocialGraphController {
       tx.set(otherRef, {
         'activeMatchId': null,
         'activeMatchWithUid': null,
+        'activeCoupleThreadId': null,
         'matchState': 'single',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     });
+
+    final tid = coupleThreadId;
+    if (tid == null || tid.isEmpty) return;
+
+    // 2) Prefer Cloud Function for guaranteed recursive delete.
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('deleteThreadRecursive');
+      await callable.call({'threadId': tid});
+      return;
+    } catch (_) {
+      // Fall back to best-effort client-side deletion.
+    }
+
+    final msgs = _db.collection('threads').doc(tid).collection('messages');
+    while (true) {
+      final batchSnap = await msgs.orderBy('sentAt').limit(200).get();
+      if (batchSnap.docs.isEmpty) break;
+      final batch = _db.batch();
+      for (final d in batchSnap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+    }
+
+    await _db.collection('threads').doc(tid).delete();
   }
 
   Stream<List<FriendRequest>> outgoingRequestsStream({required String uid}) {
