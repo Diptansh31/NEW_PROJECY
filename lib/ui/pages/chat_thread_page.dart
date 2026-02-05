@@ -3,12 +3,15 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
+import '../../call/voice_call_controller.dart';
 import '../../chat/firestore_chat_controller.dart';
 import '../../chat/firestore_chat_models.dart';
+import '../../notifications/firestore_notifications_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
 import '../widgets/async_action.dart';
 import 'reaction_row.dart';
 import 'swipe_to_reply.dart';
+import 'voice_call_page.dart';
 
 class ChatThreadPage extends StatefulWidget {
   const ChatThreadPage({
@@ -18,6 +21,8 @@ class ChatThreadPage extends StatefulWidget {
     required this.thread,
     required this.chat,
     required this.social,
+    required this.notifications,
+    required this.callController,
     this.isMatchChat = false,
   });
 
@@ -26,6 +31,8 @@ class ChatThreadPage extends StatefulWidget {
   final FirestoreChatThread thread;
   final FirestoreChatController chat;
   final FirestoreSocialGraphController social;
+  final FirestoreNotificationsController notifications;
+  final VoiceCallController callController;
   final bool isMatchChat;
 
   @override
@@ -46,6 +53,20 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   bool _showEmojiPicker = false;
 
   FirestoreMessage? _replyTo;
+
+  @override
+  void initState() {
+    super.initState();
+    // Mark message notifications for this thread as read when chat is opened
+    _markMessagesAsRead();
+  }
+
+  Future<void> _markMessagesAsRead() async {
+    await widget.notifications.markMessageNotificationsRead(
+      uid: widget.currentUser.uid,
+      threadId: widget.thread.id,
+    );
+  }
 
   @override
   void dispose() {
@@ -105,6 +126,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                 Text(widget.otherUser.username),
               ],
             ),
+            actions: [
+              if (canChat)
+                IconButton(
+                  onPressed: () => _startVoiceCall(context),
+                  icon: const Icon(Icons.call),
+                  tooltip: 'Voice Call',
+                ),
+            ],
           ),
           body: DecoratedBox(
             decoration: isMatch
@@ -497,5 +526,17 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         _replyTo = null;
       });
     });
+  }
+
+  void _startVoiceCall(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VoiceCallPage(
+          currentUser: widget.currentUser,
+          otherUser: widget.otherUser,
+          callController: widget.callController,
+        ),
+      ),
+    );
   }
 }

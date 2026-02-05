@@ -53,6 +53,17 @@ dependencies:
   # Emoji picker
   emoji_picker_flutter: ^4.3.0
 
+  # WebRTC for voice calls
+  flutter_webrtc: ^0.12.9
+
+  # Push notifications for calls
+  firebase_messaging: ^15.2.4
+  flutter_local_notifications: ^18.0.1
+
+  # Ringtone and vibration
+  vibration: ^2.0.1
+  audioplayers: ^6.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

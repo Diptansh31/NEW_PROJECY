@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
-import '../../chat/chat_models.dart';
 
 class UserAvatar extends StatelessWidget {
   const UserAvatar({super.key, required this.user, this.radius = 20});
@@ -47,19 +46,21 @@ class ConversationTile extends StatelessWidget {
   const ConversationTile({
     super.key,
     required this.otherUser,
-    required this.lastMessage,
+    required this.lastMessageText,
     required this.unread,
     required this.onTap,
   });
 
   final AppUser otherUser;
-  final ChatMessage? lastMessage;
+  final String? lastMessageText;
   final int unread;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = lastMessage?.text ?? 'Say hi…';
+    final subtitle = (lastMessageText != null && lastMessageText!.isNotEmpty) 
+        ? lastMessageText! 
+        : 'Say hi…';
 
     return Card(
       elevation: 0,

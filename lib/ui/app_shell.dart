@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'pages/discover_page.dart';
@@ -7,8 +8,14 @@ import 'pages/feed_page.dart';
 import 'pages/messages_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/notifications_page.dart';
+import 'pages/voice_call_page.dart';
 
 import '../auth/firebase_auth_controller.dart';
+import '../call/call_models.dart';
+import '../call/call_notification_service.dart';
+import '../call/fcm_call_service.dart';
+import '../call/firestore_call_signaling.dart';
+import '../call/voice_call_controller.dart';
 import '../social/firestore_social_graph_controller.dart';
 import '../chat/firestore_chat_controller.dart';
 import '../notifications/firestore_notifications_controller.dart';
@@ -44,17 +51,144 @@ class _AppShellState extends State<AppShell> {
   int _index = 0;
 
   StreamSubscription? _threadsWarmSub;
+  StreamSubscription<List<VoiceCall>>? _incomingCallsSub;
+  StreamSubscription<RemoteMessage>? _fcmForegroundSub;
+
+  // Streams for unread indicators
+  late final Stream<bool> _hasUnreadMessagesStream;
+  late final Stream<int> _unreadNotificationsStream;
+
+  // Voice call support
+  late final VoiceCallController _callController;
+  late final FirestoreCallSignaling _callSignaling;
+  bool _isHandlingCall = false;
 
   @override
   void initState() {
     super.initState();
     // Warm chat threads so Chats tab feels instant.
     _threadsWarmSub = widget.chat.threadsStream(myUid: widget.signedInUid).listen((_) {});
+    
+    // Initialize unread streams
+    _hasUnreadMessagesStream = widget.chat.hasUnreadMessagesStream(myUid: widget.signedInUid);
+    _unreadNotificationsStream = widget.notifications.unreadCountStream(uid: widget.signedInUid);
+
+    // Initialize voice call controller
+    _callSignaling = FirestoreCallSignaling();
+    _callController = VoiceCallController(signaling: _callSignaling);
+
+    // Initialize notifications and FCM
+    _initializeCallNotifications();
+
+    // Listen for incoming calls via Firestore (when app is in foreground)
+    _incomingCallsSub = _callSignaling
+        .incomingCallsStream(widget.signedInUid)
+        .listen(_handleIncomingCalls);
+  }
+
+  Future<void> _initializeCallNotifications() async {
+    // Initialize call notification service
+    await CallNotificationService.instance.initialize();
+
+    // Set up notification action callbacks
+    CallNotificationService.instance.onCallAccepted = _acceptCallFromNotification;
+    CallNotificationService.instance.onCallDeclined = _declineCallFromNotification;
+
+    // Initialize FCM service and save token
+    await FcmCallService.instance.initialize(widget.signedInUid);
+
+    // Listen for foreground FCM messages
+    _fcmForegroundSub = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+  }
+
+  void _handleForegroundMessage(RemoteMessage message) async {
+    debugPrint('AppShell: Foreground FCM message: ${message.data}');
+
+    if (message.data['type'] == 'incoming_call') {
+      final callId = message.data['callId'] as String?;
+      final callerName = message.data['callerName'] as String? ?? 'Unknown';
+      final callerUid = message.data['callerUid'] as String? ?? '';
+
+      if (callId != null && !_isHandlingCall) {
+        // Show incoming call notification with ringtone
+        await CallNotificationService.instance.showIncomingCall(
+          callId: callId,
+          callerName: callerName,
+          callerUid: callerUid,
+        );
+      }
+    } else if (message.data['type'] == 'call_ended') {
+      final callId = message.data['callId'] as String?;
+      if (callId != null) {
+        await CallNotificationService.instance.hideIncomingCall(callId);
+      }
+    }
+  }
+
+  Future<void> _acceptCallFromNotification(String callId, String callerUid) async {
+    if (_isHandlingCall) return;
+    _isHandlingCall = true;
+
+    // Get caller info
+    final callerUser = await widget.auth.publicProfileByUid(callerUid);
+    final currentUser = await widget.auth.publicProfileByUid(widget.signedInUid);
+
+    if (callerUser == null || currentUser == null || !mounted) {
+      _isHandlingCall = false;
+      return;
+    }
+
+    // Mark call as connected
+    await CallNotificationService.instance.setCallConnected(callId);
+
+    // Navigate to call page
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VoiceCallPage(
+            currentUser: currentUser,
+            otherUser: callerUser,
+            callController: _callController,
+            isIncoming: true,
+            incomingCallId: callId,
+          ),
+        ),
+      );
+    }
+
+    _isHandlingCall = false;
+  }
+
+  Future<void> _declineCallFromNotification(String callId, String callerUid) async {
+    await _callController.rejectCall(callId);
+    await CallNotificationService.instance.hideIncomingCall(callId);
+  }
+
+  Future<void> _handleIncomingCalls(List<VoiceCall> calls) async {
+    if (calls.isEmpty || _isHandlingCall) return;
+    if (_callController.state != LocalCallState.idle) return;
+
+    final call = calls.first;
+
+    // Get caller info
+    final callerUser = await widget.auth.publicProfileByUid(call.callerUid);
+    if (callerUser == null || !mounted) return;
+
+    // Show incoming call notification with ringtone and vibration
+    await CallNotificationService.instance.showIncomingCall(
+      callId: call.id,
+      callerName: callerUser.username,
+      callerUid: call.callerUid,
+    );
   }
 
   @override
   void dispose() {
     _threadsWarmSub?.cancel();
+    _incomingCallsSub?.cancel();
+    _fcmForegroundSub?.cancel();
+    _callController.dispose();
+    CallNotificationService.instance.dispose();
     super.dispose();
   }
 
@@ -84,6 +218,8 @@ class _AppShellState extends State<AppShell> {
               signedInUid: widget.signedInUid,
               auth: widget.auth,
               notifications: widget.notifications,
+              hasUnreadMessagesStream: _hasUnreadMessagesStream,
+              unreadNotificationsStream: _unreadNotificationsStream,
             ),
             const VerticalDivider(width: 1),
             Expanded(
@@ -114,35 +250,56 @@ class _AppShellState extends State<AppShell> {
       appBar: AppBar(
         title: const Text('vibeU'),
         actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => NotificationsPage(
-                    signedInUid: widget.signedInUid,
-                    auth: widget.auth,
-                    notifications: widget.notifications,
-                  ),
+          StreamBuilder<int>(
+            stream: _unreadNotificationsStream,
+            builder: (context, snapshot) {
+              final hasUnread = (snapshot.data ?? 0) > 0;
+              return IconButton(
+                tooltip: 'Notifications',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => NotificationsPage(
+                        signedInUid: widget.signedInUid,
+                        auth: widget.auth,
+                        notifications: widget.notifications,
+                      ),
+                    ),
+                  );
+                },
+                icon: _BadgeIcon(
+                  icon: Icons.favorite_border,
+                  showBadge: hasUnread,
                 ),
               );
             },
-            icon: const Icon(Icons.favorite_border),
           ),
         ],
       ),
       body: page,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (final d in _destinations)
-            NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
-              label: d.label,
-            ),
-        ],
+      bottomNavigationBar: StreamBuilder<bool>(
+        stream: _hasUnreadMessagesStream,
+        builder: (context, snapshot) {
+          final hasUnreadMessages = snapshot.data ?? false;
+          return NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: [
+              for (int i = 0; i < _destinations.length; i++)
+                NavigationDestination(
+                  icon: _BadgeIcon(
+                    icon: _destinations[i].icon,
+                    showBadge: i == 2 && hasUnreadMessages, // Index 2 is Chats
+                  ),
+                  selectedIcon: _BadgeIcon(
+                    icon: _destinations[i].selectedIcon,
+                    showBadge: i == 2 && hasUnreadMessages,
+                  ),
+                  label: _destinations[i].label,
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -168,6 +325,8 @@ class _AppShellState extends State<AppShell> {
           auth: widget.auth,
           social: widget.social,
           chat: widget.chat,
+          notifications: widget.notifications,
+          callController: _callController,
         );
       case 3:
         return ProfilePage(
@@ -205,6 +364,8 @@ class _LeftRail extends StatelessWidget {
     required this.signedInUid,
     required this.auth,
     required this.notifications,
+    required this.hasUnreadMessagesStream,
+    required this.unreadNotificationsStream,
   });
 
   final int selectedIndex;
@@ -213,6 +374,8 @@ class _LeftRail extends StatelessWidget {
   final String signedInUid;
   final FirebaseAuthController auth;
   final FirestoreNotificationsController notifications;
+  final Stream<bool> hasUnreadMessagesStream;
+  final Stream<int> unreadNotificationsStream;
 
   @override
   Widget build(BuildContext context) {
@@ -245,50 +408,71 @@ class _LeftRail extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: NavigationRail(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: onSelected,
-                labelType: NavigationRailLabelType.all,
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.local_fire_department_outlined),
-                    selectedIcon: Icon(Icons.local_fire_department),
-                    label: Text('Match'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.grid_view_outlined),
-                    selectedIcon: Icon(Icons.grid_view),
-                    label: Text('Feed'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.chat_bubble_outline),
-                    selectedIcon: Icon(Icons.chat_bubble),
-                    label: Text('Chats'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.person_outline),
-                    selectedIcon: Icon(Icons.person),
-                    label: Text('Profile'),
-                  ),
-                ],
+              child: StreamBuilder<bool>(
+                stream: hasUnreadMessagesStream,
+                builder: (context, snapshot) {
+                  final hasUnreadMessages = snapshot.data ?? false;
+                  return NavigationRail(
+                    selectedIndex: selectedIndex,
+                    onDestinationSelected: onSelected,
+                    labelType: NavigationRailLabelType.all,
+                    destinations: [
+                      const NavigationRailDestination(
+                        icon: Icon(Icons.local_fire_department_outlined),
+                        selectedIcon: Icon(Icons.local_fire_department),
+                        label: Text('Match'),
+                      ),
+                      const NavigationRailDestination(
+                        icon: Icon(Icons.grid_view_outlined),
+                        selectedIcon: Icon(Icons.grid_view),
+                        label: Text('Feed'),
+                      ),
+                      NavigationRailDestination(
+                        icon: _BadgeIcon(
+                          icon: Icons.chat_bubble_outline,
+                          showBadge: hasUnreadMessages,
+                        ),
+                        selectedIcon: _BadgeIcon(
+                          icon: Icons.chat_bubble,
+                          showBadge: hasUnreadMessages,
+                        ),
+                        label: const Text('Chats'),
+                      ),
+                      const NavigationRailDestination(
+                        icon: Icon(Icons.person_outline),
+                        selectedIcon: Icon(Icons.person),
+                        label: Text('Profile'),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => NotificationsPage(
-                        signedInUid: signedInUid,
-                        auth: auth,
-                        notifications: notifications,
-                      ),
+              child: StreamBuilder<int>(
+                stream: unreadNotificationsStream,
+                builder: (context, snapshot) {
+                  final hasUnread = (snapshot.data ?? 0) > 0;
+                  return OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => NotificationsPage(
+                            signedInUid: signedInUid,
+                            auth: auth,
+                            notifications: notifications,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: _BadgeIcon(
+                      icon: Icons.favorite_border,
+                      showBadge: hasUnread,
                     ),
+                    label: const Text('Notifications'),
                   );
                 },
-                icon: const Icon(Icons.favorite_border),
-                label: const Text('Notifications'),
               ),
             ),
           ],
@@ -397,6 +581,44 @@ class _InfoCard extends StatelessWidget {
         title: Text(title),
         subtitle: Text(subtitle),
       ),
+    );
+  }
+}
+
+/// A widget that shows an icon with an optional notification dot badge.
+/// Similar to Instagram's unread indicator.
+class _BadgeIcon extends StatelessWidget {
+  const _BadgeIcon({
+    required this.icon,
+    required this.showBadge,
+  });
+
+  final IconData icon;
+  final bool showBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showBadge) {
+      return Icon(icon);
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon),
+        Positioned(
+          right: -2,
+          top: -2,
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.error,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

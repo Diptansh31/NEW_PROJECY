@@ -268,4 +268,35 @@ class FirestoreChatController extends ChangeNotifier {
     if (message.ciphertextB64 != null) return '[Encrypted message]';
     return '[Unsupported message]';
   }
+
+  /// Stream that emits true if there are any unread messages across all threads for this user.
+  /// 
+  /// A message is considered unread if:
+  /// - It was sent to this user (toUid == myUid)
+  /// - It hasn't been marked as read
+  Stream<bool> hasUnreadMessagesStream({required String myUid}) {
+    return _db
+        .collection('users')
+        .doc(myUid)
+        .collection('notifications')
+        .where('type', isEqualTo: 'message')
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .map((snap) => snap.docs.isNotEmpty);
+  }
+
+  /// Stream of the last message for a specific thread.
+  Stream<FirestoreMessage?> lastMessageStream({required String threadId}) {
+    return _db
+        .collection('threads')
+        .doc(threadId)
+        .collection('messages')
+        .orderBy('sentAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      return FirestoreMessage.fromDoc(threadId: threadId, doc: snap.docs.first);
+    });
+  }
 }

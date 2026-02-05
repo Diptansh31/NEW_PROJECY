@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../auth/app_user.dart';
 import '../../auth/firebase_auth_controller.dart';
+import '../../call/voice_call_controller.dart';
 import '../../chat/firestore_chat_controller.dart';
-import '../../chat/firestore_chat_models.dart';
+import '../../chat/firestore_chat_models.dart' show FirestoreChatThread, FirestoreMessage;
+import '../../notifications/firestore_notifications_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
 import '../widgets/async_action.dart';
 import '_messages_widgets.dart';
@@ -17,6 +19,8 @@ class MessagesPage extends StatefulWidget {
     required this.auth,
     required this.social,
     required this.chat,
+    required this.notifications,
+    required this.callController,
   });
 
   final String signedInUid;
@@ -24,6 +28,8 @@ class MessagesPage extends StatefulWidget {
   final FirebaseAuthController auth;
   final FirestoreSocialGraphController social;
   final FirestoreChatController chat;
+  final FirestoreNotificationsController notifications;
+  final VoiceCallController callController;
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -67,6 +73,8 @@ class _MessagesPageState extends State<MessagesPage> {
           thread: thread,
           chat: widget.chat,
           social: widget.social,
+          notifications: widget.notifications,
+          callController: widget.callController,
           isMatchChat: isMatchChat,
         ),
       ),
@@ -226,6 +234,8 @@ class _MessagesPageState extends State<MessagesPage> {
                                                 thread: thread,
                                                 chat: widget.chat,
                                                 social: widget.social,
+                                                notifications: widget.notifications,
+                                                callController: widget.callController,
                                                 isMatchChat: true,
                                               ),
                                             ),
@@ -281,12 +291,21 @@ class _MessagesPageState extends State<MessagesPage> {
                                           return const SizedBox.shrink();
                                         }
 
-                                        return ConversationTile(
-                                          otherUser: other,
-                                          // TODO: last message preview/decryption for list.
-                                          lastMessage: null,
-                                          unread: 0,
-                                          onTap: () => _openChatWith(current: currentUser, other: other),
+                                        return StreamBuilder<FirestoreMessage?>(
+                                          stream: widget.chat.lastMessageStream(threadId: t.id),
+                                          builder: (context, msgSnap) {
+                                            final lastMsg = msgSnap.data;
+                                            final lastMessageText = lastMsg != null 
+                                                ? widget.chat.displayText(lastMsg) 
+                                                : null;
+
+                                            return ConversationTile(
+                                              otherUser: other,
+                                              lastMessageText: lastMessageText,
+                                              unread: 0,
+                                              onTap: () => _openChatWith(current: currentUser, other: other),
+                                            );
+                                          },
                                         );
                                       },
                                     ),

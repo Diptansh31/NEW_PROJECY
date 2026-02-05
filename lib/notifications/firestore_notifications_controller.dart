@@ -57,6 +57,29 @@ class FirestoreNotificationsController {
     await batch.commit();
   }
 
+  /// Mark all message notifications for a specific thread as read.
+  Future<void> markMessageNotificationsRead({
+    required String uid,
+    required String threadId,
+  }) async {
+    final snap = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .where('type', isEqualTo: 'message')
+        .where('threadId', isEqualTo: threadId)
+        .where('read', isEqualTo: false)
+        .get();
+
+    if (snap.docs.isEmpty) return;
+
+    final batch = _db.batch();
+    for (final d in snap.docs) {
+      batch.set(d.reference, {'read': true}, SetOptions(merge: true));
+    }
+    await batch.commit();
+  }
+
   Future<void> create({
     required String toUid,
     required String fromUid,
