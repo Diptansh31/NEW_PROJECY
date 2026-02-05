@@ -196,12 +196,15 @@ class FirestoreChatController extends ChangeNotifier {
       throw ArgumentError('text is empty');
     }
 
+    // Use local timestamp as fallback for immediate display, server timestamp for consistency
+    final now = DateTime.now();
     final msgDoc = _db.collection('threads').doc(threadId).collection('messages').doc();
     await msgDoc.set({
       'fromUid': fromUid,
       'toUid': toUid,
       'text': trimmed,
       'sentAt': FieldValue.serverTimestamp(),
+      'sentAtLocal': Timestamp.fromDate(now), // Local fallback for pending writes
       'replyToMessageId': replyToMessageId,
       'replyToFromUid': replyToFromUid,
       'replyToText': replyToText,

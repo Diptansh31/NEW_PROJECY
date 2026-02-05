@@ -82,6 +82,14 @@ class FirestoreMessage {
       }
     }
 
+    // Use server timestamp if available, otherwise fall back to local timestamp
+    // This prevents the "time jump" lag when sending messages
+    final serverTimestamp = d['sentAt'] as Timestamp?;
+    final localTimestamp = d['sentAtLocal'] as Timestamp?;
+    final sentAt = serverTimestamp?.toDate() ?? 
+                   localTimestamp?.toDate() ?? 
+                   DateTime.now(); // Final fallback for very old messages
+
     return FirestoreMessage(
       id: doc.id,
       threadId: threadId,
@@ -95,7 +103,7 @@ class FirestoreMessage {
       replyToFromUid: d['replyToFromUid'] as String?,
       replyToText: d['replyToText'] as String?,
       reactions: reactions,
-      sentAt: (d['sentAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
+      sentAt: sentAt,
     );
   }
 }
