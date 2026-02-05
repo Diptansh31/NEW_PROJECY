@@ -47,6 +47,7 @@ class FirestoreChatController extends ChangeNotifier {
     final doc = _db.collection('threads').doc(id);
 
     await doc.set({
+      'type': 'direct',
       'userAUid': myUid.compareTo(otherUid) <= 0 ? myUid : otherUid,
       'userBUid': myUid.compareTo(otherUid) <= 0 ? otherUid : myUid,
       'userAEmail': myUid.compareTo(otherUid) <= 0 ? myEmail : otherEmail,
@@ -67,68 +68,115 @@ class FirestoreChatController extends ChangeNotifier {
     );
   }
 
+  /// Create a dedicated couple thread for a match.
+  ///
+  /// Thread id is random so it doesn't collide with direct threads.
+  Future<FirestoreChatThread> createCoupleThread({
+    required String uidA,
+    required String emailA,
+    required String uidB,
+    required String emailB,
+    String? matchId,
+  }) async {
+    final doc = _db.collection('threads').doc();
+
+    final aUid = uidA.compareTo(uidB) <= 0 ? uidA : uidB;
+    final bUid = uidA.compareTo(uidB) <= 0 ? uidB : uidA;
+    final aEmail = uidA.compareTo(uidB) <= 0 ? emailA : emailB;
+    final bEmail = uidA.compareTo(uidB) <= 0 ? emailB : emailA;
+
+    await doc.set({
+      'type': 'couple',
+      'userAUid': aUid,
+      'userBUid': bUid,
+      'userAEmail': aEmail,
+      'userBEmail': bEmail,
+      if (matchId != null) 'matchId': matchId,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final snap = await doc.get();
+    final data = snap.data() as Map<String, dynamic>;
+
+    return FirestoreChatThread(
+      id: doc.id,
+      userAUid: data['userAUid'] as String,
+      userBUid: data['userBUid'] as String,
+      userAEmail: data['userAEmail'] as String,
+      userBEmail: data['userBEmail'] as String,
+      lastMessageAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  Future<FirestoreChatThread?> getThreadById(String threadId) async {
+    final doc = await _db.collection('threads').doc(threadId).get();
+    final data = doc.data();
+    if (data == null) return null;
+
+    return FirestoreChatThread(
+      id: doc.id,
+      userAUid: data['userAUid'] as String,
+      userBUid: data['userBUid'] as String,
+      userAEmail: (data['userAEmail'] as String?) ?? '',
+      userBEmail: (data['userBEmail'] as String?) ?? '',
+      lastMessageAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  /// Stream of chat threads for a user.
+  /// 
+  /// Uses Firestore's offline persistence to show cached threads when offline.
   Stream<List<FirestoreChatThread>> threadsStream({required String myUid}) {
-    final a = _db.collection('threads').where('userAUid', isEqualTo: myUid).snapshots();
-    final b = _db.collection('threads').where('userBUid', isEqualTo: myUid).snapshots();
+    // Use a single OR query so the stream emits immediately and we don't get
+    // stuck waiting for two separate listeners.
+    // IMPORTANT: Your Firestore rules restrict couple threads (type=='couple')
+    // to only be readable while still matched. That makes a broad list query fail.
+    // So we only list direct threads here. Couple chat is opened via its id.
+    final q = _db.collection('threads').where(
+          Filter.and(
+            Filter.or(
+              Filter('userAUid', isEqualTo: myUid),
+              Filter('userBUid', isEqualTo: myUid),
+            ),
+            // Backward compatible: older threads may not have `type`.
+            Filter.or(
+              Filter('type', isEqualTo: 'direct'),
+              Filter('type', isNull: true),
+            ),
+          ),
+        );
 
-    final controller = StreamController<List<FirestoreChatThread>>();
-
-    QuerySnapshot<Map<String, dynamic>>? lastA;
-    QuerySnapshot<Map<String, dynamic>>? lastB;
-
-    void emit() {
-      if (lastA == null || lastB == null) return;
-      final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[...lastA!.docs, ...lastB!.docs];
-
-      final byId = <String, FirestoreChatThread>{};
-      for (final d in docs) {
+    return q.snapshots(includeMetadataChanges: true).map((snap) {
+      final threads = snap.docs.map((d) {
         final data = d.data();
-        byId[d.id] = FirestoreChatThread(
+        return FirestoreChatThread(
           id: d.id,
           userAUid: data['userAUid'] as String,
           userBUid: data['userBUid'] as String,
-          userAEmail: data['userAEmail'] as String,
-          userBEmail: data['userBEmail'] as String,
+          userAEmail: (data['userAEmail'] as String?) ?? '',
+          userBEmail: (data['userBEmail'] as String?) ?? '',
           lastMessageAt: (data['updatedAt'] as Timestamp?)?.toDate(),
         );
-      }
+      }).toList(growable: false);
 
-      final threads = byId.values.toList(growable: false);
       threads.sort((x, y) => (y.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0))
           .compareTo(x.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
-
-      controller.add(threads);
-    }
-
-    late final StreamSubscription subA;
-    late final StreamSubscription subB;
-
-    subA = a.listen((snap) {
-      lastA = snap;
-      emit();
-    }, onError: controller.addError);
-
-    subB = b.listen((snap) {
-      lastB = snap;
-      emit();
-    }, onError: controller.addError);
-
-    controller.onCancel = () async {
-      await subA.cancel();
-      await subB.cancel();
-      await controller.close();
-    };
-
-    return controller.stream;
+      return threads;
+    });
   }
 
+  /// Stream of messages for a thread.
+  /// 
+  /// Uses Firestore's offline persistence to show cached messages when offline.
+  /// The [includeMetadataChanges] option ensures we get updates from cache immediately.
   Stream<List<FirestoreMessage>> messagesStream({required String threadId}) {
     return _db
         .collection('threads')
         .doc(threadId)
         .collection('messages')
         .orderBy('sentAt', descending: false)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .map((snap) => snap.docs.map((d) => FirestoreMessage.fromDoc(threadId: threadId, doc: d)).toList());
   }
 
