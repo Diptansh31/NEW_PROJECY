@@ -264,9 +264,59 @@ class FirestoreChatController extends ChangeNotifier {
   }
 
   String displayText(FirestoreMessage message) {
+    if (message.isCallMessage) {
+      return _getCallDisplayText(message);
+    }
     if (message.text != null) return message.text!;
     if (message.ciphertextB64 != null) return '[Encrypted message]';
     return '[Unsupported message]';
+  }
+
+  String _getCallDisplayText(FirestoreMessage message) {
+    final duration = message.formattedCallDuration;
+    switch (message.callStatus) {
+      case CallMessageStatus.completed:
+        return 'Voice call · $duration';
+      case CallMessageStatus.missed:
+        return 'Missed voice call';
+      case CallMessageStatus.declined:
+        return 'Declined voice call';
+      case CallMessageStatus.cancelled:
+        return 'Cancelled voice call';
+      default:
+        return 'Voice call';
+    }
+  }
+
+  /// Sends a call message to record a voice call in the chat.
+  /// 
+  /// This is called when a voice call ends to show the call history in chat
+  /// like WhatsApp does.
+  Future<String> sendCallMessage({
+    required String threadId,
+    required String fromUid,
+    required String toUid,
+    required CallMessageStatus status,
+    int? durationSeconds,
+  }) async {
+    final now = DateTime.now();
+    final msgDoc = _db.collection('threads').doc(threadId).collection('messages').doc();
+    
+    await msgDoc.set({
+      'fromUid': fromUid,
+      'toUid': toUid,
+      'messageType': 'call',
+      'callStatus': status.name,
+      'callDurationSeconds': durationSeconds,
+      'sentAt': FieldValue.serverTimestamp(),
+      'sentAtLocal': Timestamp.fromDate(now),
+    });
+
+    await _db.collection('threads').doc(threadId).set({
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return msgDoc.id;
   }
 
   /// Stream that emits true if there are any unread messages across all threads for this user.

@@ -15,6 +15,15 @@ enum LocalCallState {
   ended,
 }
 
+/// Reason why a call ended.
+enum CallEndReason {
+  completed,   // Call was answered and ended normally
+  missed,      // Call was not answered (timeout)
+  declined,    // Call was rejected by receiver
+  cancelled,   // Call was cancelled by caller before answer
+  failed,      // Technical failure
+}
+
 /// Controller for managing WebRTC voice calls.
 ///
 /// Handles:
@@ -92,8 +101,19 @@ class VoiceCallController extends ChangeNotifier {
   DateTime? _connectedAt;
   DateTime? get connectedAt => _connectedAt;
 
+  // Track the reason for call ending
+  CallEndReason? _endReason;
+
   StreamSubscription<VoiceCall?>? _callSubscription;
   StreamSubscription<List<IceCandidate>>? _candidatesSubscription;
+
+  /// Callback when a call ends. Provides call info for saving to chat history.
+  /// Parameters: callerUid, calleeUid, wasConnected, durationSeconds, endReason
+  void Function(String callerUid, String calleeUid, bool wasConnected, int? durationSeconds, CallEndReason reason)? onCallEnded;
+
+  // Store caller/callee info for the callback
+  String? _callerUid;
+  String? _calleeUid;
 
   /// Starts an outgoing call to another user.
   Future<String?> startCall({
@@ -107,6 +127,8 @@ class VoiceCallController extends ChangeNotifier {
 
     try {
       _isCaller = true;
+      _callerUid = callerUid;
+      _calleeUid = calleeUid;
       _state = LocalCallState.outgoing;
       _statusMessage = 'Connecting...';
       notifyListeners();
@@ -190,6 +212,8 @@ class VoiceCallController extends ChangeNotifier {
         return false;
       }
       _currentCall = call;
+      _callerUid = call.callerUid;
+      _calleeUid = call.calleeUid;
 
       // Get local audio stream
       await _initLocalStream();
@@ -384,16 +408,19 @@ class VoiceCallController extends ChangeNotifier {
           break;
         case CallStatus.ended:
           _statusMessage = 'Call ended';
+          _endReason = _connectedAt != null ? CallEndReason.completed : CallEndReason.cancelled;
           notifyListeners();
           _cleanup();
           break;
         case CallStatus.rejected:
           _statusMessage = 'Call declined';
+          _endReason = CallEndReason.declined;
           notifyListeners();
           _cleanup();
           break;
         case CallStatus.missed:
           _statusMessage = 'No answer';
+          _endReason = CallEndReason.missed;
           notifyListeners();
           _cleanup();
           break;
@@ -479,12 +506,32 @@ class VoiceCallController extends ChangeNotifier {
     await _peerConnection?.close();
     _peerConnection = null;
 
+    // Calculate call duration if call was connected
+    int? durationSeconds;
+    final wasConnected = _connectedAt != null;
+    if (wasConnected) {
+      durationSeconds = DateTime.now().difference(_connectedAt!).inSeconds;
+    }
+
+    // Trigger callback to save call to chat history
+    final callerUid = _callerUid;
+    final calleeUid = _calleeUid;
+    final reason = _endReason ?? (wasConnected ? CallEndReason.completed : CallEndReason.cancelled);
+    
+    if (callerUid != null && calleeUid != null && onCallEnded != null) {
+      // Call the callback after cleanup to save to chat
+      onCallEnded!(callerUid, calleeUid, wasConnected, durationSeconds, reason);
+    }
+
     _currentCallId = null;
     _currentCall = null;
+    _callerUid = null;
+    _calleeUid = null;
     _isCaller = false;
     _isMuted = false;
     _isSpeakerOn = false;
     _connectedAt = null;
+    _endReason = null;
 
     _state = LocalCallState.ended;
     notifyListeners();

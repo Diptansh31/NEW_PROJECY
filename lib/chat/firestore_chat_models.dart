@@ -23,10 +23,26 @@ class FirestoreChatThread {
   String otherEmail(String myUid) => userAUid == myUid ? userBEmail : userAEmail;
 }
 
+/// Message type enum for different kinds of messages.
+enum MessageType {
+  text,
+  call,
+  encrypted,
+}
+
+/// Call status for call messages.
+enum CallMessageStatus {
+  completed,  // Call was answered and ended normally
+  missed,     // Call was not answered
+  declined,   // Call was declined by receiver
+  cancelled,  // Call was cancelled by caller
+}
+
 /// A chat message stored in Firestore.
 ///
 /// New messages use plaintext field `text`.
 /// Older messages may contain encrypted payload fields.
+/// Call messages have `messageType: 'call'` with call metadata.
 @immutable
 class FirestoreMessage {
   const FirestoreMessage({
@@ -43,6 +59,9 @@ class FirestoreMessage {
     this.replyToFromUid,
     this.replyToText,
     this.reactions = const <String, List<String>>{},
+    this.messageType = MessageType.text,
+    this.callDurationSeconds,
+    this.callStatus,
   });
 
   final String id;
@@ -63,6 +82,26 @@ class FirestoreMessage {
 
   /// Emoji -> list of uids.
   final Map<String, List<String>> reactions;
+
+  /// Type of message (text, call, encrypted).
+  final MessageType messageType;
+
+  /// Duration of the call in seconds (only for call messages).
+  final int? callDurationSeconds;
+
+  /// Status of the call (only for call messages).
+  final CallMessageStatus? callStatus;
+
+  /// Helper to check if this is a call message.
+  bool get isCallMessage => messageType == MessageType.call;
+
+  /// Get formatted call duration string (e.g., "2:34").
+  String? get formattedCallDuration {
+    if (callDurationSeconds == null) return null;
+    final minutes = callDurationSeconds! ~/ 60;
+    final seconds = callDurationSeconds! % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
 
   static FirestoreMessage fromDoc({
     required String threadId,
@@ -90,6 +129,37 @@ class FirestoreMessage {
                    localTimestamp?.toDate() ?? 
                    DateTime.now(); // Final fallback for very old messages
 
+    // Parse message type
+    final messageTypeStr = d['messageType'] as String?;
+    MessageType messageType;
+    if (messageTypeStr == 'call') {
+      messageType = MessageType.call;
+    } else if (d['ciphertextB64'] != null) {
+      messageType = MessageType.encrypted;
+    } else {
+      messageType = MessageType.text;
+    }
+
+    // Parse call status if this is a call message
+    CallMessageStatus? callStatus;
+    final callStatusStr = d['callStatus'] as String?;
+    if (callStatusStr != null) {
+      switch (callStatusStr) {
+        case 'completed':
+          callStatus = CallMessageStatus.completed;
+          break;
+        case 'missed':
+          callStatus = CallMessageStatus.missed;
+          break;
+        case 'declined':
+          callStatus = CallMessageStatus.declined;
+          break;
+        case 'cancelled':
+          callStatus = CallMessageStatus.cancelled;
+          break;
+      }
+    }
+
     return FirestoreMessage(
       id: doc.id,
       threadId: threadId,
@@ -104,6 +174,9 @@ class FirestoreMessage {
       replyToText: d['replyToText'] as String?,
       reactions: reactions,
       sentAt: sentAt,
+      messageType: messageType,
+      callDurationSeconds: d['callDurationSeconds'] as int?,
+      callStatus: callStatus,
     );
   }
 }

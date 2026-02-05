@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../auth/app_user.dart';
 import '../../call/voice_call_controller.dart';
 import '../../chat/firestore_chat_controller.dart';
-import '../../chat/firestore_chat_models.dart';
+import '../../chat/firestore_chat_models.dart' show FirestoreChatThread, FirestoreMessage, CallMessageStatus;
 import '../../notifications/firestore_notifications_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
 import '../widgets/async_action.dart';
@@ -182,6 +182,16 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                           final otherBubble = isMatch
                               ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.70)
                               : theme.colorScheme.surfaceContainerHighest;
+
+                          // Special rendering for call messages
+                          if (m.isCallMessage) {
+                            return _buildCallMessageBubble(
+                              context: context,
+                              message: m,
+                              isMe: isMe,
+                              theme: theme,
+                            );
+                          }
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
@@ -535,6 +545,117 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
           currentUser: widget.currentUser,
           otherUser: widget.otherUser,
           callController: widget.callController,
+        ),
+      ),
+    );
+  }
+
+  /// Builds a WhatsApp-style call message bubble with appropriate icons.
+  Widget _buildCallMessageBubble({
+    required BuildContext context,
+    required FirestoreMessage message,
+    required bool isMe,
+    required ThemeData theme,
+  }) {
+    // Determine call icon and color based on status and direction
+    IconData callIcon;
+    Color iconColor;
+    String statusText;
+
+    final isOutgoing = message.fromUid == widget.currentUser.uid;
+    
+    switch (message.callStatus) {
+      case CallMessageStatus.completed:
+        callIcon = isOutgoing ? Icons.call_made : Icons.call_received;
+        iconColor = Colors.green;
+        statusText = 'Voice call · ${message.formattedCallDuration ?? '0:00'}';
+        break;
+      case CallMessageStatus.missed:
+        callIcon = Icons.call_missed;
+        iconColor = Colors.red;
+        statusText = isOutgoing ? 'No answer' : 'Missed voice call';
+        break;
+      case CallMessageStatus.declined:
+        callIcon = Icons.call_end;
+        iconColor = Colors.red;
+        statusText = isOutgoing ? 'Call declined' : 'Declined voice call';
+        break;
+      case CallMessageStatus.cancelled:
+        callIcon = Icons.call_end;
+        iconColor = Colors.orange;
+        statusText = 'Cancelled call';
+        break;
+      default:
+        callIcon = Icons.call;
+        iconColor = theme.colorScheme.primary;
+        statusText = 'Voice call';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Center(
+        child: Container(
+          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Call icon with background
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  callIcon,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Call info
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      statusText,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatTime(message.sentAt),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Call back button (for missed/declined calls)
+              if (message.callStatus == CallMessageStatus.missed ||
+                  message.callStatus == CallMessageStatus.declined)
+                IconButton(
+                  onPressed: () => _startVoiceCall(context),
+                  icon: Icon(
+                    Icons.call,
+                    color: theme.colorScheme.primary,
+                  ),
+                  tooltip: 'Call back',
+                ),
+            ],
+          ),
         ),
       ),
     );

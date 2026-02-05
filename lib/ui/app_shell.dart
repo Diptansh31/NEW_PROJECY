@@ -16,6 +16,7 @@ import '../call/call_notification_service.dart';
 import '../call/fcm_call_service.dart';
 import '../call/firestore_call_signaling.dart';
 import '../call/voice_call_controller.dart';
+import '../chat/firestore_chat_models.dart' show CallMessageStatus;
 import '../social/firestore_social_graph_controller.dart';
 import '../chat/firestore_chat_controller.dart';
 import '../notifications/firestore_notifications_controller.dart';
@@ -76,6 +77,9 @@ class _AppShellState extends State<AppShell> {
     // Initialize voice call controller
     _callSignaling = FirestoreCallSignaling();
     _callController = VoiceCallController(signaling: _callSignaling);
+
+    // Set up callback to save call messages to chat
+    _callController.onCallEnded = _onCallEnded;
 
     // Initialize notifications and FCM
     _initializeCallNotifications();
@@ -180,6 +184,66 @@ class _AppShellState extends State<AppShell> {
       callerName: callerUser.username,
       callerUid: call.callerUid,
     );
+  }
+
+  /// Called when a voice call ends. Saves the call as a message in the chat thread.
+  Future<void> _onCallEnded(
+    String callerUid,
+    String calleeUid,
+    bool wasConnected,
+    int? durationSeconds,
+    CallEndReason reason,
+  ) async {
+    try {
+      // Get or create thread between the two users
+      final currentUserProfile = await widget.auth.publicProfileByUid(widget.signedInUid);
+      final otherUid = callerUid == widget.signedInUid ? calleeUid : callerUid;
+      final otherUserProfile = await widget.auth.publicProfileByUid(otherUid);
+
+      if (currentUserProfile == null || otherUserProfile == null) {
+        debugPrint('AppShell: Could not get user profiles for call message');
+        return;
+      }
+
+      final thread = await widget.chat.getOrCreateThread(
+        myUid: widget.signedInUid,
+        myEmail: currentUserProfile.email,
+        otherUid: otherUid,
+        otherEmail: otherUserProfile.email,
+      );
+
+      // Map CallEndReason to CallMessageStatus
+      CallMessageStatus status;
+      switch (reason) {
+        case CallEndReason.completed:
+          status = CallMessageStatus.completed;
+          break;
+        case CallEndReason.missed:
+          status = CallMessageStatus.missed;
+          break;
+        case CallEndReason.declined:
+          status = CallMessageStatus.declined;
+          break;
+        case CallEndReason.cancelled:
+        case CallEndReason.failed:
+          status = CallMessageStatus.cancelled;
+          break;
+      }
+
+      // Save call message to chat
+      // fromUid is the caller (person who initiated the call)
+      await widget.chat.sendCallMessage(
+        threadId: thread.id,
+        fromUid: callerUid,
+        toUid: calleeUid,
+        status: status,
+        durationSeconds: wasConnected ? durationSeconds : null,
+      );
+
+      debugPrint('AppShell: Call message saved - status: $status, duration: $durationSeconds');
+    } catch (e) {
+      debugPrint('AppShell: Error saving call message: $e');
+    }
   }
 
   @override
