@@ -332,33 +332,33 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                           Container(
                             height: 300,
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerLow,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              color: theme.colorScheme.surface,
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 10,
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 8,
                                   offset: const Offset(0, -2),
                                 ),
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                               child: EmojiPicker(
                                 onEmojiSelected: _onEmojiSelected,
                                 config: Config(
                                   height: 300,
                                   checkPlatformCompatibility: true,
                                   emojiViewConfig: EmojiViewConfig(
-                                    emojiSizeMax: 32 * (foundation.defaultTargetPlatform == TargetPlatform.iOS ? 1.30 : 1.0),
+                                    emojiSizeMax: 28 * (foundation.defaultTargetPlatform == TargetPlatform.iOS ? 1.30 : 1.0),
                                     verticalSpacing: 0,
                                     horizontalSpacing: 0,
-                                    gridPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                    gridPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                     recentsLimit: 28,
-                                    backgroundColor: theme.colorScheme.surfaceContainerLow,
+                                    backgroundColor: theme.colorScheme.surface,
                                     noRecents: Text(
                                       'No Recents',
-                                      style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurfaceVariant),
+                                      style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurfaceVariant),
                                     ),
                                     buttonMode: ButtonMode.MATERIAL,
                                   ),
@@ -367,55 +367,23 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                     middle: EmojiPickerItem.emojiView,
                                     bottom: EmojiPickerItem.searchBar,
                                   ),
-                                  skinToneConfig: const SkinToneConfig(
+                                  skinToneConfig: SkinToneConfig(
                                     enabled: true,
-                                    dialogBackgroundColor: Colors.white,
-                                    indicatorColor: Colors.grey,
+                                    dialogBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                    indicatorColor: theme.colorScheme.primary,
                                   ),
                                   categoryViewConfig: CategoryViewConfig(
-                                    initCategory: Category.RECENT,
-                                    backgroundColor: theme.colorScheme.surfaceContainerLow,
+                                    initCategory: Category.SMILEYS,
+                                    backgroundColor: theme.colorScheme.surface,
+                                    dividerColor: theme.colorScheme.outlineVariant,
                                     indicatorColor: theme.colorScheme.primary,
                                     iconColor: theme.colorScheme.onSurfaceVariant,
                                     iconColorSelected: theme.colorScheme.primary,
                                     categoryIcons: const CategoryIcons(),
-                                    customCategoryView: (config, state, tabController, pageController) {
-                                      return Container(
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.surfaceContainerLow,
-                                          border: Border(
-                                            bottom: BorderSide(
-                                              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                                              width: 1,
-                                            ),
-                                          ),
-                                        ),
-                                        child: TabBar(
-                                          tabAlignment: TabAlignment.fill,
-                                          controller: tabController,
-                                          labelColor: theme.colorScheme.primary,
-                                          unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                                          indicatorColor: theme.colorScheme.primary,
-                                          indicatorSize: TabBarIndicatorSize.tab,
-                                          dividerColor: Colors.transparent,
-                                          tabs: const [
-                                            Tab(icon: Icon(Icons.access_time, size: 22)),
-                                            Tab(icon: Icon(Icons.emoji_emotions_outlined, size: 22)),
-                                            Tab(icon: Icon(Icons.pets_outlined, size: 22)),
-                                            Tab(icon: Icon(Icons.fastfood_outlined, size: 22)),
-                                            Tab(icon: Icon(Icons.sports_soccer_outlined, size: 22)),
-                                            Tab(icon: Icon(Icons.directions_car_outlined, size: 22)),
-                                            Tab(icon: Icon(Icons.lightbulb_outline, size: 22)),
-                                            Tab(icon: Icon(Icons.emoji_symbols_outlined, size: 22)),
-                                            Tab(icon: Icon(Icons.flag_outlined, size: 22)),
-                                          ],
-                                        ),
-                                      );
-                                    },
                                   ),
                                   bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
                                   searchViewConfig: SearchViewConfig(
-                                    backgroundColor: theme.colorScheme.surfaceContainerLow,
+                                    backgroundColor: theme.colorScheme.surface,
                                     buttonIconColor: theme.colorScheme.primary,
                                     hintText: 'Search emoji...',
                                   ),
