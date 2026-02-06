@@ -3,11 +3,13 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../auth/app_user.dart';
 import '../../auth/firebase_auth_controller.dart';
 import '../../social/firestore_social_graph_controller.dart';
 import '../../posts/firestore_posts_controller.dart';
 import '../../posts/post_models.dart';
 import '../widgets/async_action.dart';
+import 'edit_profile_page.dart';
 import 'friends_list_page.dart';
 import 'my_post_detail_page.dart';
 import 'post_image_widget.dart';
@@ -93,24 +95,37 @@ class ProfilePage extends StatelessWidget {
                         runSpacing: 10,
                         children: [
                           FilledButton.tonalIcon(
-                            onPressed: null,
+                            onPressed: me != null
+                                ? () => _navigateToEditProfile(context, me)
+                                : null,
                             icon: const Icon(Icons.edit),
-                            label: const Text('Edit profile (soon)'),
+                            label: const Text('Edit profile'),
                           ),
                           OutlinedButton.icon(
-                            onPressed: null,
+                            onPressed: () => runAsyncAction(context, () async {
+                              final result = await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                                withData: true,
+                              );
+                              if (result == null || result.files.isEmpty) return;
+                              final bytes = result.files.single.bytes;
+                              if (bytes == null) return;
+                              await auth.updateProfileImage(uid: signedInUid, bytes: bytes);
+                            }),
                             icon: const Icon(Icons.photo_camera_outlined),
                             label: const Text('Add photos'),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tip: add more photos and a short bio to get more matches.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                      if (me?.bio.isEmpty ?? true) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tip: add a bio and interests to get more matches.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -164,21 +179,52 @@ class ProfilePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'This section is LinkedIn-style: your academic identity + interests.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  if (me?.bio.isNotEmpty ?? false) ...[
+                    Text(
+                      me!.bio,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Row(
                     children: [
-                      Chip(label: Text('CSE')),
-                      Chip(label: Text('1st year')),
-                      Chip(label: Text('Hostel: H-5')),
-                      Chip(label: Text('Interests: Music, Travel')),
+                      Icon(
+                        _genderIcon(me?.gender),
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        me?.gender.label ?? 'Not specified',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
+                  if (me?.interests.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final interest in me!.interests)
+                          Chip(
+                            label: Text(interest),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                      ],
+                    ),
+                  ],
+                  if ((me?.bio.isEmpty ?? true) && (me?.interests.isEmpty ?? true)) ...[
+                    Text(
+                      'No bio or interests yet. Tap "Edit profile" to add them!',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -291,6 +337,27 @@ class ProfilePage extends StatelessWidget {
         );
       },
     );
+  }
+
+  void _navigateToEditProfile(BuildContext context, AppUser user) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditProfilePage(
+          currentUser: user,
+          auth: auth,
+        ),
+      ),
+    );
+  }
+
+  IconData _genderIcon(Gender? gender) {
+    return switch (gender) {
+      Gender.male => Icons.male,
+      Gender.female => Icons.female,
+      Gender.nonBinary => Icons.transgender,
+      Gender.preferNotToSay => Icons.person_outline,
+      null => Icons.person_outline,
+    };
   }
 }
 

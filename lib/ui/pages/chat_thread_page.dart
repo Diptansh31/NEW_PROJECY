@@ -57,6 +57,11 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   // Selection mode state
   bool _selectionMode = false;
   final Set<String> _selectedMessageIds = {};
+  
+  // For showing reaction picker above message
+  final Map<String, GlobalKey> _messageKeys = {};
+  OverlayEntry? _reactionOverlay;
+  bool _showingFullEmojiPicker = false;
 
   @override
   void initState() {
@@ -74,9 +79,19 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
   @override
   void dispose() {
+    _removeReactionOverlay();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+  
+  void _removeReactionOverlay() {
+    _reactionOverlay?.remove();
+    _reactionOverlay = null;
+  }
+  
+  GlobalKey _getMessageKey(String messageId) {
+    return _messageKeys.putIfAbsent(messageId, () => GlobalKey());
   }
 
   void _toggleEmojiPicker() {
@@ -140,6 +155,13 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                   ),
             actions: [
               if (_selectionMode) ...[
+                // Show reaction button only when exactly one message is selected
+                if (_selectedMessageIds.length == 1)
+                  IconButton(
+                    onPressed: () => _showReactionPicker(_selectedMessageIds.first),
+                    icon: const Icon(Icons.emoji_emotions_outlined),
+                    tooltip: 'React',
+                  ),
                 IconButton(
                   onPressed: _selectedMessageIds.isNotEmpty
                       ? () => _showDeleteDialog(context)
@@ -218,84 +240,104 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                             );
                           }
 
+                          // Add extra bottom padding if message has reactions (for the overlapping badge)
+                          final hasReactions = m.reactions.isNotEmpty && !isDeleted;
+                          
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Row(
-                                children: [
-                                  // Selection checkbox
-                                  if (_selectionMode)
-                                    Checkbox(
-                                      value: isSelected,
-                                      onChanged: (_) => _toggleMessageSelection(m.id),
-                                    ),
-                                  Expanded(
-                                    child: SwipeToReply(
-                                      replyFromRight: isMe,
-                                      onReply: isDeleted ? () {} : () => setState(() => _replyTo = m),
-                                      child: GestureDetector(
-                                        onTap: _selectionMode
-                                            ? () => _toggleMessageSelection(m.id)
-                                            : null,
-                                        onLongPress: isDeleted
-                                            ? null
-                                            : () => _enterSelectionMode(m.id),
-                                        child: Container(
-                                          color: isSelected
-                                              ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                                              : Colors.transparent,
-                                          child: Align(
-                                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                                            child: ConstrainedBox(
-                                              constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
-                                              child: IntrinsicWidth(
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: isDeleted
-                                                        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-                                                        : (isMe ? myBubble : otherBubble),
-                                                    borderRadius: BorderRadius.only(
-                                                      topLeft: const Radius.circular(16),
-                                                      topRight: const Radius.circular(16),
-                                                      bottomLeft: Radius.circular(isMe ? 16 : 4),
-                                                      bottomRight: Radius.circular(isMe ? 4 : 16),
-                                                    ),
-                                                  ),
-                                                  padding: const EdgeInsets.fromLTRB(12, 8, 10, 6),
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      if (m.replyToText != null && !isDeleted)
-                                                        Container(
-                                                          padding: const EdgeInsets.all(8),
-                                                          margin: const EdgeInsets.only(bottom: 8),
-                                                          decoration: BoxDecoration(
-                                                            border: Border(
-                                                              left: BorderSide(
-                                                                color: theme.colorScheme.primary,
-                                                                width: 3,
-                                                              ),
+                            padding: EdgeInsets.only(bottom: hasReactions ? 22 : 4),
+                            child: SwipeToReply(
+                              replyFromRight: isMe,
+                              onReply: isDeleted ? () {} : () => setState(() => _replyTo = m),
+                              child: GestureDetector(
+                                onTap: _selectionMode
+                                    ? () => _toggleMessageSelection(m.id)
+                                    : null,
+                                onLongPress: isDeleted
+                                    ? null
+                                    : () => _enterSelectionMode(m.id),
+                                child: Container(
+                                  key: _getMessageKey(m.id),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  color: isSelected
+                                      ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                                      : Colors.transparent,
+                                  child: Row(
+                                    mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Flexible(
+                                        child: Stack(
+                                          clipBehavior: Clip.none,
+                                          children: [
+                                            // Message bubble
+                                            Container(
+                                              constraints: BoxConstraints(
+                                                maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: isDeleted
+                                                    ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+                                                    : (isMe ? myBubble : otherBubble),
+                                                borderRadius: BorderRadius.only(
+                                                  topLeft: const Radius.circular(18),
+                                                  topRight: const Radius.circular(18),
+                                                  bottomLeft: Radius.circular(isMe ? 18 : 4),
+                                                  bottomRight: Radius.circular(isMe ? 4 : 18),
+                                                ),
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.only(
+                                                  topLeft: const Radius.circular(18),
+                                                  topRight: const Radius.circular(18),
+                                                  bottomLeft: Radius.circular(isMe ? 18 : 4),
+                                                  bottomRight: Radius.circular(isMe ? 4 : 18),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    // Reply preview
+                                                    if (m.replyToText != null && !isDeleted)
+                                                      Container(
+                                                        width: double.infinity,
+                                                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                                                        decoration: BoxDecoration(
+                                                          color: isMe 
+                                                              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+                                                              : theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                                                          border: Border(
+                                                            left: BorderSide(
+                                                              color: isMe 
+                                                                  ? theme.colorScheme.primary
+                                                                  : theme.colorScheme.secondary,
+                                                              width: 4,
                                                             ),
                                                           ),
-                                                          child: Text(
-                                                            m.replyToText!,
-                                                            maxLines: 2,
-                                                            overflow: TextOverflow.ellipsis,
-                                                            style: theme.textTheme.bodySmall,
+                                                        ),
+                                                        child: Text(
+                                                          m.replyToText!,
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: theme.textTheme.bodySmall?.copyWith(
+                                                            color: theme.colorScheme.onSurfaceVariant,
                                                           ),
                                                         ),
-                                                      Stack(
+                                                      ),
+                                                    // Message content with timestamp
+                                                    Padding(
+                                                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        crossAxisAlignment: CrossAxisAlignment.end,
                                                         children: [
-                                                          Padding(
-                                                            padding: const EdgeInsets.only(right: 54, bottom: 14),
+                                                          // Message text
+                                                          Flexible(
                                                             child: Row(
                                                               mainAxisSize: MainAxisSize.min,
                                                               children: [
                                                                 if (isDeleted)
                                                                   Padding(
-                                                                    padding: const EdgeInsets.only(right: 6),
+                                                                    padding: const EdgeInsets.only(right: 4),
                                                                     child: Icon(
                                                                       Icons.block,
                                                                       size: 16,
@@ -306,52 +348,59 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                                                   child: Text(
                                                                     text,
                                                                     style: isDeleted
-                                                                        ? theme.textTheme.bodyMedium?.copyWith(
+                                                                        ? theme.textTheme.bodyLarge?.copyWith(
                                                                             fontStyle: FontStyle.italic,
                                                                             color: theme.colorScheme.onSurfaceVariant,
                                                                           )
-                                                                        : null,
+                                                                        : theme.textTheme.bodyLarge,
                                                                   ),
                                                                 ),
                                                               ],
                                                             ),
                                                           ),
-                                                          Positioned(
-                                                            right: 0,
-                                                            bottom: 0,
+                                                          // Timestamp
+                                                          const SizedBox(width: 8),
+                                                          Padding(
+                                                            padding: const EdgeInsets.only(bottom: 0),
                                                             child: Text(
                                                               _formatTime(m.sentAt),
                                                               style: theme.textTheme.labelSmall?.copyWith(
-                                                                color: theme.colorScheme.onSurfaceVariant,
+                                                                fontSize: 11,
+                                                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                                                               ),
                                                             ),
                                                           ),
                                                         ],
                                                       ),
-                                                      if (m.reactions.isNotEmpty && !isDeleted) ...[
-                                                        const SizedBox(height: 8),
-                                                        ReactionRow(
-                                                          reactions: m.reactions,
-                                                          myUid: widget.currentUser.uid,
-                                                          onToggle: (emoji) => widget.chat.toggleReaction(
-                                                            threadId: widget.thread.id,
-                                                            messageId: m.id,
-                                                            emoji: emoji,
-                                                            uid: widget.currentUser.uid,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
-                                          ),
+                                            // WhatsApp-style reaction badge
+                                            if (hasReactions)
+                                              Positioned(
+                                                bottom: -18,
+                                                // Place on left side for both sender and receiver
+                                                left: 12,
+                                                child: ReactionRow(
+                                                  reactions: m.reactions,
+                                                  myUid: widget.currentUser.uid,
+                                                  isMe: isMe,
+                                                  onToggle: (emoji) => widget.chat.toggleReaction(
+                                                    threadId: widget.thread.id,
+                                                    messageId: m.id,
+                                                    emoji: emoji,
+                                                    uid: widget.currentUser.uid,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                    ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           );
@@ -555,9 +604,231 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       _selectionMode = true;
       _selectedMessageIds.add(messageId);
     });
+    // Show reaction picker above the selected message
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showReactionPickerAboveMessage(messageId);
+    });
+  }
+
+  void _showReactionPickerAboveMessage(String messageId) {
+    _removeReactionOverlay();
+    
+    final messageKey = _messageKeys[messageId];
+    if (messageKey == null || messageKey.currentContext == null) return;
+    
+    final RenderBox renderBox = messageKey.currentContext!.findRenderObject() as RenderBox;
+    final Offset messagePosition = renderBox.localToGlobal(Offset.zero);
+    final Size messageSize = renderBox.size;
+    final Size screenSize = MediaQuery.of(context).size;
+    final theme = Theme.of(context);
+    
+    // Quick reactions - 6 emojis like WhatsApp
+    final quickReactions = ['❤️', '😂', '😮', '😢', '😡', '👍'];
+    
+    _reactionOverlay = OverlayEntry(
+      builder: (context) {
+        // Calculate position - show above the message
+        const pickerHeight = 56.0;
+        const pickerWidth = 280.0;
+        
+        double top = messagePosition.dy - pickerHeight - 8;
+        // If not enough space above, show below
+        if (top < MediaQuery.of(context).padding.top + kToolbarHeight) {
+          top = messagePosition.dy + messageSize.height + 8;
+        }
+        
+        // Center horizontally relative to message, but keep within screen
+        double left = messagePosition.dx + (messageSize.width - pickerWidth) / 2;
+        left = left.clamp(16.0, screenSize.width - pickerWidth - 16);
+        
+        return Stack(
+          children: [
+            // Dismiss overlay when tapping outside
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  _removeReactionOverlay();
+                  if (!_showingFullEmojiPicker) {
+                    _exitSelectionMode();
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            // Reaction picker
+            Positioned(
+              top: top,
+              left: left,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final emoji in quickReactions)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            _removeReactionOverlay();
+                            widget.chat.toggleReaction(
+                              threadId: widget.thread.id,
+                              messageId: messageId,
+                              emoji: emoji,
+                              uid: widget.currentUser.uid,
+                            );
+                            _exitSelectionMode();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                          ),
+                        ),
+                      Container(
+                        width: 1,
+                        height: 28,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          _removeReactionOverlay();
+                          _showingFullEmojiPicker = true;
+                          setState(() {});
+                          _showFullEmojiPickerInline(messageId);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.add_circle_outline, size: 24, color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    
+    Overlay.of(context).insert(_reactionOverlay!);
+  }
+
+  void _showFullEmojiPickerInline(String messageId) {
+    final theme = Theme.of(context);
+    
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.45,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: EmojiPicker(
+                  onEmojiSelected: (category, emoji) {
+                    Navigator.of(ctx).pop();
+                    widget.chat.toggleReaction(
+                      threadId: widget.thread.id,
+                      messageId: messageId,
+                      emoji: emoji.emoji,
+                      uid: widget.currentUser.uid,
+                    );
+                    _showingFullEmojiPicker = false;
+                    _exitSelectionMode();
+                  },
+                  config: Config(
+                    height: 300,
+                    checkPlatformCompatibility: true,
+                    emojiViewConfig: EmojiViewConfig(
+                      emojiSizeMax: 28 * (foundation.defaultTargetPlatform == TargetPlatform.iOS ? 1.30 : 1.0),
+                      verticalSpacing: 0,
+                      horizontalSpacing: 0,
+                      gridPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      recentsLimit: 28,
+                      backgroundColor: theme.colorScheme.surface,
+                      noRecents: Text(
+                        'No Recents',
+                        style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      buttonMode: ButtonMode.MATERIAL,
+                    ),
+                    viewOrderConfig: const ViewOrderConfig(
+                      top: EmojiPickerItem.categoryBar,
+                      middle: EmojiPickerItem.emojiView,
+                      bottom: EmojiPickerItem.searchBar,
+                    ),
+                    skinToneConfig: SkinToneConfig(
+                      enabled: true,
+                      dialogBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+                      indicatorColor: theme.colorScheme.primary,
+                    ),
+                    categoryViewConfig: CategoryViewConfig(
+                      initCategory: Category.SMILEYS,
+                      backgroundColor: theme.colorScheme.surface,
+                      dividerColor: theme.colorScheme.outlineVariant,
+                      indicatorColor: theme.colorScheme.primary,
+                      iconColor: theme.colorScheme.onSurfaceVariant,
+                      iconColorSelected: theme.colorScheme.primary,
+                      categoryIcons: const CategoryIcons(),
+                    ),
+                    bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
+                    searchViewConfig: SearchViewConfig(
+                      backgroundColor: theme.colorScheme.surface,
+                      buttonIconColor: theme.colorScheme.primary,
+                      hintText: 'Search emoji...',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ).whenComplete(() {
+      _showingFullEmojiPicker = false;
+      _exitSelectionMode();
+    });
+  }
+  
+  void _showReactionPicker(String messageId) {
+    // Called from app bar button - show above the message if possible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showReactionPickerAboveMessage(messageId);
+    });
   }
 
   void _exitSelectionMode() {
+    _removeReactionOverlay();
     setState(() {
       _selectionMode = false;
       _selectedMessageIds.clear();

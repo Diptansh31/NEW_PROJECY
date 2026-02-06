@@ -191,6 +191,26 @@ class FirebaseAuthController extends ChangeNotifier {
     }, SetOptions(merge: true));
   }
 
+  /// Updates the user's profile information.
+  Future<void> updateProfile({
+    required String uid,
+    String? username,
+    Gender? gender,
+    String? bio,
+    List<String>? interests,
+  }) async {
+    final updates = <String, dynamic>{
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (username != null) updates['username'] = username.trim();
+    if (gender != null) updates['gender'] = gender.name;
+    if (bio != null) updates['bio'] = bio.trim();
+    if (interests != null) updates['interests'] = interests;
+
+    await _db.collection('users').doc(uid).set(updates, SetOptions(merge: true));
+  }
+
   /// Encrypted backup of the identity key seed to Firestore.
   ///
   /// Stores at: users/{uid}/key_backups/identity

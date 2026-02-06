@@ -230,6 +230,11 @@ class FirestoreChatController extends ChangeNotifier {
     return msgDoc.id;
   }
 
+  /// Toggles a reaction on a message.
+  /// 
+  /// WhatsApp-style: Each user can only have ONE reaction per message.
+  /// If the user already reacted with the same emoji, it removes the reaction.
+  /// If the user reacted with a different emoji, it replaces the old reaction.
   Future<void> toggleReaction({
     required String threadId,
     required String messageId,
@@ -243,20 +248,35 @@ class FirestoreChatController extends ChangeNotifier {
       final data = snap.data() as Map<String, dynamic>?;
       if (data == null) return;
 
-      final reactions = (data['reactions'] as Map<String, dynamic>?) ?? <String, dynamic>{};
-      final existing = (reactions[emoji] as List?)?.whereType<String>().toList() ?? <String>[];
+      final reactions = Map<String, dynamic>.from(
+        (data['reactions'] as Map<String, dynamic>?) ?? <String, dynamic>{},
+      );
 
-      if (existing.contains(uid)) {
-        existing.remove(uid);
-      } else {
-        existing.add(uid);
+      // First, remove the user from any existing reaction (WhatsApp allows only one reaction per user)
+      for (final key in reactions.keys.toList()) {
+        final users = (reactions[key] as List?)?.whereType<String>().toList() ?? <String>[];
+        if (users.contains(uid)) {
+          users.remove(uid);
+          if (users.isEmpty) {
+            reactions.remove(key);
+          } else {
+            reactions[key] = users;
+          }
+        }
       }
 
-      // Keep the map clean: remove emoji key if empty.
-      if (existing.isEmpty) {
-        reactions.remove(emoji);
-      } else {
-        reactions[emoji] = existing;
+      // Now add the new reaction (unless user tapped the same emoji to remove it)
+      final existingForEmoji = (reactions[emoji] as List?)?.whereType<String>().toList() ?? <String>[];
+      
+      // Check if user previously had this exact emoji (means they want to remove it)
+      final hadSameEmoji = (data['reactions'] as Map<String, dynamic>?)
+          ?.entries
+          .any((e) => e.key == emoji && ((e.value as List?)?.contains(uid) ?? false)) ?? false;
+
+      if (!hadSameEmoji) {
+        // Add new reaction
+        existingForEmoji.add(uid);
+        reactions[emoji] = existingForEmoji;
       }
 
       tx.update(msgRef, {'reactions': reactions});

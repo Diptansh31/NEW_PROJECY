@@ -258,7 +258,7 @@ class _SignupPageState extends State<SignupPage> {
   }
 }
 
-class _AccountStep extends StatelessWidget {
+class _AccountStep extends StatefulWidget {
   const _AccountStep({
     required this.formKey,
     required this.emailController,
@@ -274,9 +274,26 @@ class _AccountStep extends StatelessWidget {
   final VoidCallback onNext;
 
   @override
+  State<_AccountStep> createState() => _AccountStepState();
+}
+
+class _AccountStepState extends State<_AccountStep> {
+  final _emailFocus = FocusNode();
+  final _usernameFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _emailFocus.dispose();
+    _usernameFocus.dispose();
+    _passwordFocus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Form(
-      key: formKey,
+      key: widget.formKey,
       child: ListView(
         children: [
           const Text(
@@ -285,11 +302,17 @@ class _AccountStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextFormField(
-            controller: emailController,
+            controller: widget.emailController,
+            focusNode: _emailFocus,
             decoration: const InputDecoration(
               labelText: 'College email',
               hintText: 'name.branch.year@nitj.ac.in',
+              prefixIcon: Icon(Icons.email_outlined),
             ),
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+            onFieldSubmitted: (_) => _usernameFocus.requestFocus(),
             validator: (v) {
               final value = (v ?? '').trim();
               if (value.isEmpty) return 'Enter email';
@@ -301,10 +324,15 @@ class _AccountStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextFormField(
-            controller: usernameController,
+            controller: widget.usernameController,
+            focusNode: _usernameFocus,
             decoration: const InputDecoration(
               labelText: 'Username',
+              prefixIcon: Icon(Icons.person_outline),
             ),
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.username],
+            onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
             validator: (v) {
               final value = (v ?? '').trim();
               if (value.isEmpty) return 'Enter username';
@@ -314,11 +342,16 @@ class _AccountStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           TextFormField(
-            controller: passwordController,
+            controller: widget.passwordController,
+            focusNode: _passwordFocus,
             obscureText: true,
             decoration: const InputDecoration(
               labelText: 'Password',
+              prefixIcon: Icon(Icons.lock_outlined),
             ),
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.newPassword],
+            onFieldSubmitted: (_) => widget.onNext(),
             validator: (v) {
               final value = v ?? '';
               if (value.isEmpty) return 'Enter password';
@@ -328,7 +361,7 @@ class _AccountStep extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: onNext,
+            onPressed: widget.onNext,
             child: const Text('Next'),
           ),
         ],

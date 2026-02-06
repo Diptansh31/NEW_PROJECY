@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../auth/firebase_auth_controller.dart';
+import 'otp_verification_dialog.dart';
 import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -16,6 +17,10 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  
+  // Focus nodes for keyboard navigation
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
 
   String? _error;
   bool _submitting = false;
@@ -24,6 +29,8 @@ class _LoginPageState extends State<LoginPage> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -35,10 +42,24 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+    // First, verify email with OTP
+    final email = _emailController.text.trim();
+    final verified = await showOtpVerificationDialog(
+      context: context,
+      email: email,
+    );
 
+    if (!verified) {
+      setState(() {
+        _submitting = false;
+        _error = 'Email verification cancelled.';
+      });
+      return;
+    }
+
+    // OTP verified, proceed with login
     final err = await widget.controller.signIn(
-      email: _emailController.text,
+      email: email,
       password: _passwordController.text,
     );
 
@@ -86,9 +107,17 @@ class _LoginPageState extends State<LoginPage> {
                         children: [
                           TextFormField(
                             controller: _emailController,
+                            focusNode: _emailFocus,
                             decoration: const InputDecoration(
                               labelText: 'Email',
+                              prefixIcon: Icon(Icons.email_outlined),
                             ),
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
+                            onFieldSubmitted: (_) {
+                              _passwordFocus.requestFocus();
+                            },
                             validator: (v) {
                               if (v == null || v.trim().isEmpty) return 'Enter email';
                               return null;
@@ -97,10 +126,17 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _passwordController,
+                            focusNode: _passwordFocus,
                             obscureText: true,
                             decoration: const InputDecoration(
                               labelText: 'Password',
+                              prefixIcon: Icon(Icons.lock_outlined),
                             ),
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.password],
+                            onFieldSubmitted: (_) {
+                              if (!_submitting) _login();
+                            },
                             validator: (v) {
                               if (v == null || v.isEmpty) return 'Enter password';
                               return null;
