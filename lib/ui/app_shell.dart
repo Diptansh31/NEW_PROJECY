@@ -266,6 +266,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = width >= 1024;
 
