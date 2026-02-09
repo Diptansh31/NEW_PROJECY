@@ -17,3 +17,11 @@ template id : template_0kyvu6i
 <br>
 public key : vloPVEJM-L9LN98i6
 <hr>
+diptansh's official id:
+<br>
+service id : service_jh4mbir
+<br>
+template id : template_dl6e2yi
+<br>
+public id : St5wpn83TVNq--6XS
+<hr>
