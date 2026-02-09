@@ -25,3 +25,11 @@ template id : template_dl6e2yi
 <br>
 public id : St5wpn83TVNq--6XS
 <hr>
+nawdeep's official email id :
+<br>
+public key : 5rH0mnC40Y8ZPvWQa
+<br>
+service id : service_4gdnfar
+<br>
+template id : template_k3ttgrh
+<hr>
